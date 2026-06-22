@@ -42,15 +42,27 @@ export function createTransaction(payload: {
   amount: number
   type: "receita" | "despesa"
   category: string
+  receiptPhotoPath?: string
 }): Promise<Transaction> {
   return request("/api/transactions", { method: "POST", body: JSON.stringify(payload) })
 }
 
 export function updateTransaction(
   id: string,
-  payload: { date: string; description: string; amount: number; category: string },
+  payload: { date: string; description: string; amount: number; category: string; receiptPhotoPath?: string },
 ): Promise<Transaction> {
   return request(`/api/transactions/${id}`, { method: "PUT", body: JSON.stringify(payload) })
+}
+
+export async function uploadReceipt(file: File): Promise<{ path: string }> {
+  const formData = new FormData()
+  formData.append("file", file)
+  const response = await fetch("/api/receipts", { method: "POST", body: formData })
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.error ?? `Erro ${response.status}`)
+  }
+  return response.json()
 }
 
 export function deleteTransaction(id: string): Promise<{ ok: true }> {

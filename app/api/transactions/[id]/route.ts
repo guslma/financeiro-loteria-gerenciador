@@ -8,6 +8,7 @@ const updateTransactionSchema = z.object({
   description: z.string().trim().min(1),
   amount: z.number().positive(),
   category: z.string().trim().min(1),
+  receiptPhotoPath: z.string().trim().min(1).optional(),
 })
 
 function serializeTransaction(t: { id: string; date: string; description: string; amount: number; type: string; receiptPhotoPath: string | null; category: { name: string } }) {
@@ -44,12 +45,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Transação não encontrada" }, { status: 404 })
   }
 
-  const { date, description, amount, category } = parsed.data
+  const { date, description, amount, category, receiptPhotoPath } = parsed.data
   const categoryId = await resolveCategoryId(category, existing.type as "receita" | "despesa")
 
   const updated = await prisma.transaction.update({
     where: { id },
-    data: { date, description, amount, categoryId },
+    data: { date, description, amount, categoryId, ...(receiptPhotoPath ? { receiptPhotoPath } : {}) },
     include: { category: true },
   })
 

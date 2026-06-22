@@ -11,6 +11,7 @@ const createTransactionSchema = z.object({
   amount: z.number().positive(),
   type: typeSchema,
   category: z.string().trim().min(1),
+  receiptPhotoPath: z.string().trim().min(1).optional(),
 })
 
 function serializeTransaction(t: { id: string; date: string; description: string; amount: number; type: string; receiptPhotoPath: string | null; category: { name: string } }) {
@@ -77,11 +78,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { date, description, amount, type, category } = parsed.data
+  const { date, description, amount, type, category, receiptPhotoPath } = parsed.data
   const categoryId = await resolveCategoryId(category, type)
 
   const transaction = await prisma.transaction.create({
-    data: { date, description, amount, type, categoryId },
+    data: { date, description, amount, type, categoryId, receiptPhotoPath },
     include: { category: true },
   })
 

@@ -28,16 +28,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Plus, Edit, Trash2 } from "lucide-react"
+import { Plus, Edit, Trash2, Camera } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { CurrencyInput, parseCurrencyValue } from "@/components/currency-input"
 import { CategoryManager } from "@/components/category-manager"
+import { ReceiptCapture } from "@/components/receipt-capture"
 import {
   fetchTransactions,
   createTransaction,
   updateTransaction,
   deleteTransaction,
   fetchCategories,
+  uploadReceipt,
 } from "@/lib/api-client"
 import type { Transaction } from "@/lib/api-client"
 
@@ -77,6 +79,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
   const [sortBy, setSortBy] = useState<"date" | "amount" | "category">("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null)
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
 
   useEffect(() => {
     loadTransactions()
@@ -117,11 +120,24 @@ export function TransactionManager({ type }: TransactionManagerProps) {
       return
     }
 
+    let receiptPhotoPath: string | undefined
+    if (receiptFile) {
+      try {
+        const uploaded = await uploadReceipt(receiptFile)
+        receiptPhotoPath = uploaded.path
+      } catch (error) {
+        console.error("Erro ao enviar foto do comprovante:", error)
+        toast({ title: "Erro", description: "Erro ao enviar foto do comprovante", variant: "destructive" })
+        return
+      }
+    }
+
     const payload = {
       date: formData.date,
       description: `${categoryToSave} - ${new Date(formData.date).toLocaleDateString("pt-BR")}`,
       amount: amountValue,
       category: categoryToSave,
+      ...(receiptPhotoPath ? { receiptPhotoPath } : {}),
     }
 
     try {
@@ -149,6 +165,24 @@ export function TransactionManager({ type }: TransactionManagerProps) {
     setFormData({ date: new Date().toISOString().split("T")[0], amount: "", category: "" })
     setCustomCategory("")
     setShowCustomCategory(false)
+    setReceiptFile(null)
+  }
+
+  const handleReceiptExtracted = ({
+    amountGuess,
+    dateGuess,
+  }: {
+    amountGuess: number | null
+    dateGuess: string | null
+  }) => {
+    setFormData((prev) => ({
+      ...prev,
+      amount:
+        amountGuess !== null
+          ? amountGuess.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : prev.amount,
+      date: dateGuess ?? prev.date,
+    }))
   }
 
   const handleEdit = (transaction: Transaction) => {
@@ -294,6 +328,13 @@ export function TransactionManager({ type }: TransactionManagerProps) {
                       )}
                     </div>
                   </div>
+                  {type === "despesa" && (
+                    <ReceiptCapture
+                      onExtracted={handleReceiptExtracted}
+                      onFileSelected={setReceiptFile}
+                      existingPhotoUrl={editingTransaction?.receiptPhotoPath ?? null}
+                    />
+                  )}
                 </div>
                 <DialogFooter>
                   <Button type="submit">{editingTransaction ? "Atualizar" : "Salvar"}</Button>
@@ -348,7 +389,22 @@ export function TransactionManager({ type }: TransactionManagerProps) {
               {getSortedTransactions().map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell>{new Date(transaction.date).toLocaleDateString("pt-BR")}</TableCell>
-                  <TableCell className="capitalize">{transaction.category}</TableCell>
+                  <TableCell className="capitalize">
+                    <div className="flex items-center gap-2">
+                      {transaction.category}
+                      {transaction.receiptPhotoPath && (
+                        <a
+                          href={transaction.receiptPhotoPath}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Ver comprovante"
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <Camera className="h-4 w-4" />
+                        </a>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className={`text-right font-medium ${l.amountColor}`}>
                     R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </TableCell>

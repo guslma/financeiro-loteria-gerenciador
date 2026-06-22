@@ -31,6 +31,9 @@ next-env.d.ts
 /prisma/*.db
 /prisma/*.db-journal
 
+# uploaded receipt photos
+/public/uploads
+
 # pwa generated files
 /public/sw.js
 /public/sw.js.map
