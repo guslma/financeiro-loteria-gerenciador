@@ -54,15 +54,36 @@ export function updateTransaction(
   return request(`/api/transactions/${id}`, { method: "PUT", body: JSON.stringify(payload) })
 }
 
-export async function uploadReceipt(file: File): Promise<{ path: string }> {
+async function uploadFile<T>(url: string, file: File): Promise<T> {
   const formData = new FormData()
   formData.append("file", file)
-  const response = await fetch("/api/receipts", { method: "POST", body: formData })
+  const response = await fetch(url, { method: "POST", body: formData })
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     throw new Error(body?.error ?? `Erro ${response.status}`)
   }
   return response.json()
+}
+
+export function uploadReceipt(file: File): Promise<{ path: string }> {
+  return uploadFile("/api/receipts", file)
+}
+
+export interface ImportPreview {
+  total: number
+  skipped: number
+  receitas: number
+  despesas: number
+  categories: string[]
+  preview: { date: string; type: "receita" | "despesa"; category: string; description: string; amount: number }[]
+}
+
+export function previewImport(file: File): Promise<ImportPreview> {
+  return uploadFile("/api/import?dryRun=true", file)
+}
+
+export function confirmImport(file: File): Promise<{ imported: number; skipped: number }> {
+  return uploadFile("/api/import", file)
 }
 
 export function deleteTransaction(id: string): Promise<{ ok: true }> {

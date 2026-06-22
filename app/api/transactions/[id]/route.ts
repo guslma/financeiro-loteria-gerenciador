@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { categoriesMatch } from "@/lib/categories"
+import { resolveCategoryId } from "@/lib/categories"
 
 const updateTransactionSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -23,15 +23,6 @@ function serializeTransaction(t: { id: string; date: string; description: string
   }
 }
 
-async function resolveCategoryId(name: string, type: "receita" | "despesa") {
-  const existing = await prisma.category.findMany({ where: { type } })
-  const match = existing.find((cat) => categoriesMatch(cat.name, name))
-  if (match) return match.id
-
-  const created = await prisma.category.create({ data: { name: name.trim(), type } })
-  return created.id
-}
-
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const body = await request.json()
@@ -46,7 +37,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { date, description, amount, category, receiptPhotoPath } = parsed.data
-  const categoryId = await resolveCategoryId(category, existing.type as "receita" | "despesa")
+  const categoryId = await resolveCategoryId(prisma, category, existing.type as "receita" | "despesa")
 
   const updated = await prisma.transaction.update({
     where: { id },

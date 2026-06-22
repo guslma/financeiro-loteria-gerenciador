@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { categoriesMatch } from "@/lib/categories"
+import { resolveCategoryId } from "@/lib/categories"
 
 const typeSchema = z.enum(["receita", "despesa"])
 
@@ -24,15 +24,6 @@ function serializeTransaction(t: { id: string; date: string; description: string
     category: t.category.name,
     receiptPhotoPath: t.receiptPhotoPath,
   }
-}
-
-async function resolveCategoryId(name: string, type: "receita" | "despesa") {
-  const existing = await prisma.category.findMany({ where: { type } })
-  const match = existing.find((cat) => categoriesMatch(cat.name, name))
-  if (match) return match.id
-
-  const created = await prisma.category.create({ data: { name: name.trim(), type } })
-  return created.id
 }
 
 export async function GET(request: NextRequest) {
@@ -79,7 +70,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { date, description, amount, type, category, receiptPhotoPath } = parsed.data
-  const categoryId = await resolveCategoryId(category, type)
+  const categoryId = await resolveCategoryId(prisma, category, type)
 
   const transaction = await prisma.transaction.create({
     data: { date, description, amount, type, categoryId, receiptPhotoPath },

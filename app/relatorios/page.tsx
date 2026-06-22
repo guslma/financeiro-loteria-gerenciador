@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Filter } from "lucide-react"
+import { FileText, Filter, Upload } from "lucide-react"
+import Link from "next/link"
 import { toast } from "@/hooks/use-toast"
 import { fetchTransactions } from "@/lib/api-client"
 import type { Transaction } from "@/lib/api-client"
@@ -510,6 +511,12 @@ export default function Relatorios() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Relatórios</h1>
         <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/importar">
+              <Upload className="mr-2 h-4 w-4" />
+              Importar Planilha
+            </Link>
+          </Button>
           <Button onClick={exportToPDF} variant="outline">
             <FileText className="mr-2 h-4 w-4" />
             Exportar PDF
