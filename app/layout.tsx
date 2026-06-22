@@ -39,5 +39,7 @@ export default function RootLayout({
 }
 
 export const metadata = {
-      generator: 'v0.app'
-    };
+  title: "Gestor de Loterias",
+  description: "Gestão financeira para lotéricas",
+  generator: "v0.app",
+}

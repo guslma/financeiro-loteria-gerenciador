@@ -4,8 +4,9 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, TrendingUp, TrendingDown } from "lucide-react"
-import { safeJSONParse } from "@/lib/storage"
 import { categoriesMatch } from "@/lib/categories"
+import { fetchTransactions } from "@/lib/api-client"
+import type { Transaction } from "@/lib/api-client"
 import {
   Bar,
   BarChart,
@@ -19,16 +20,6 @@ import {
   Legend,
 } from "recharts"
 
-interface Transaction {
-  id: string
-  date: string
-  description: string
-  amount: number
-  category: string
-  type: "receita" | "despesa"
-  paymentMethod: string
-}
-
 export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [filterType, setFilterType] = useState("month") // "month", "year"
@@ -36,8 +27,9 @@ export default function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
 
   useEffect(() => {
-    const stored = localStorage.getItem("financial-transactions")
-    setTransactions(safeJSONParse<Transaction[]>(stored, []))
+    fetchTransactions()
+      .then(setTransactions)
+      .catch((error) => console.error("Erro ao carregar transações:", error))
   }, [])
 
   // Processar dados para gráficos mensais

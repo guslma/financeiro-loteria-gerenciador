@@ -8,17 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { FileText, Filter } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { safeJSONParse } from "@/lib/storage"
-
-interface Transaction {
-  id: string
-  date: string
-  description: string
-  amount: number
-  category: string
-  type: "receita" | "despesa"
-  paymentMethod: string
-}
+import { fetchTransactions } from "@/lib/api-client"
+import type { Transaction } from "@/lib/api-client"
 
 interface MonthlyData {
   [category: string]: {
@@ -49,10 +40,12 @@ export default function Relatorios() {
   })
 
   useEffect(() => {
-    const stored = localStorage.getItem("financial-transactions")
-    const data = safeJSONParse<Transaction[]>(stored, [])
-    setTransactions(data)
-    setFilteredTransactions(data)
+    fetchTransactions()
+      .then((data) => {
+        setTransactions(data)
+        setFilteredTransactions(data)
+      })
+      .catch((error) => console.error("Erro ao carregar transações:", error))
   }, [])
 
   const applyFilters = () => {
@@ -185,7 +178,7 @@ export default function Relatorios() {
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>Relatório Financeiro - FinanceLot</title>
+        <title>Relatório Financeiro - Gestor de Loterias</title>
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -316,7 +309,7 @@ export default function Relatorios() {
       </head>
       <body>
         <div class="header">
-          <h1>📊 Relatório Financeiro - FinanceLot</h1>
+          <h1>📊 Relatório Financeiro - Gestor de Loterias</h1>
           <p>Período: ${periodText}</p>
           <p>Gerado em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}</p>
         </div>

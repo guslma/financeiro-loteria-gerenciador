@@ -26,154 +26,78 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Settings, Plus, X, Edit2, Check } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { categoriesMatch } from "@/lib/categories"
-import { safeJSONParse } from "@/lib/storage"
+import { fetchCategories, createCategory, renameCategory, deleteCategory as deleteCategoryRequest } from "@/lib/api-client"
+import type { Category } from "@/lib/api-client"
 
 interface CategoryManagerProps {
   type: "receita" | "despesa"
-  onCategoriesChange?: () => void
 }
 
-const defaultCategories = {
-  receita: ["Comissão Contas", "Comissão Bolão", "Comissão Jogos"],
-  despesa: ["Salários", "Suprimentos", "Manutenção", "Contas Fixas", "Impostos"],
-}
-
-export function CategoryManager({ type, onCategoriesChange }: CategoryManagerProps) {
+export function CategoryManager({ type }: CategoryManagerProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [allCategories, setAllCategories] = useState<string[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [newCategory, setNewCategory] = useState("")
-  const [editingCategory, setEditingCategory] = useState<string | null>(null)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [editingValue, setEditingValue] = useState("")
-  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-
-  const storageKey = `all-categories-${type}`
 
   useEffect(() => {
     loadCategories()
   }, [type])
 
-  const loadCategories = () => {
+  const loadCategories = async () => {
     try {
-      const stored = localStorage.getItem(storageKey)
-      if (stored) {
-        const categories = safeJSONParse<string[]>(stored, [])
-        const validCategories = categories.filter((cat) => cat && cat.trim() !== "")
-
-        // Garantir que "Nova" está sempre no final
-        const filtered = validCategories.filter((cat: string) => cat !== "Nova")
-        setAllCategories([...filtered, "Nova"])
-      } else {
-        // Primeira vez, usar categorias padrão
-        const defaults = defaultCategories[type]
-        setAllCategories([...defaults, "Nova"])
-        localStorage.setItem(storageKey, JSON.stringify([...defaults, "Nova"]))
-      }
+      const data = await fetchCategories(type)
+      setCategories(data)
     } catch (error) {
       console.error("Erro ao carregar categorias:", error)
-      const defaults = defaultCategories[type]
-      setAllCategories([...defaults, "Nova"])
+      toast({ title: "Erro", description: "Erro ao carregar categorias", variant: "destructive" })
     }
   }
 
-  const saveCategories = (categories: string[]) => {
-    try {
-      const filtered = categories.filter((cat) => cat && cat.trim() !== "" && cat !== "Nova")
-      const final = [...filtered, "Nova"]
-
-      localStorage.setItem(storageKey, JSON.stringify(final))
-      setAllCategories(final)
-
-      // Disparar evento customizado para outros componentes escutarem
-      window.dispatchEvent(new CustomEvent(`categories-updated-${type}`))
-    } catch (error) {
-      console.error("Erro ao salvar categorias:", error)
-      toast({
-        title: "Erro",
-        description: "Erro ao salvar categorias",
-        variant: "destructive",
-      })
-    }
+  const notifyChange = () => {
+    window.dispatchEvent(new CustomEvent(`categories-updated-${type}`))
   }
 
-  const addCategory = () => {
+  const addCategory = async () => {
     if (!newCategory.trim()) {
-      toast({
-        title: "Erro",
-        description: "Digite um nome para a categoria",
-        variant: "destructive",
-      })
+      toast({ title: "Erro", description: "Digite um nome para a categoria", variant: "destructive" })
       return
     }
 
-    const categoryName = newCategory.trim()
-
-    if (allCategories.some((cat) => categoriesMatch(cat, categoryName))) {
-      toast({
-        title: "Erro",
-        description: "Esta categoria já existe",
-        variant: "destructive",
-      })
-      return
+    try {
+      await createCategory(newCategory.trim(), type)
+      setNewCategory("")
+      await loadCategories()
+      notifyChange()
+      toast({ title: "Sucesso", description: "Categoria adicionada com sucesso" })
+    } catch {
+      toast({ title: "Erro", description: "Esta categoria já existe", variant: "destructive" })
     }
-
-    const updated = allCategories.filter((cat) => cat !== "Nova")
-    updated.push(categoryName)
-    saveCategories(updated)
-    setNewCategory("")
-
-    toast({
-      title: "Sucesso",
-      description: "Categoria adicionada com sucesso",
-    })
   }
 
-  const startEditing = (category: string) => {
-    if (category === "Nova") return
+  const startEditing = (category: Category) => {
     setEditingCategory(category)
-    setEditingValue(category)
+    setEditingValue(category.name)
   }
 
-  const saveEdit = () => {
-    if (!editingValue.trim()) {
-      toast({
-        title: "Erro",
-        description: "O nome da categoria não pode estar vazio",
-        variant: "destructive",
-      })
+  const saveEdit = async () => {
+    if (!editingValue.trim() || !editingCategory) {
+      toast({ title: "Erro", description: "O nome da categoria não pode estar vazio", variant: "destructive" })
       return
     }
 
-    const newName = editingValue.trim()
-
-    if (
-      !categoriesMatch(newName, editingCategory ?? "") &&
-      allCategories.some((cat) => categoriesMatch(cat, newName))
-    ) {
-      toast({
-        title: "Erro",
-        description: "Já existe uma categoria com este nome",
-        variant: "destructive",
-      })
-      return
+    try {
+      await renameCategory(editingCategory.id, editingValue.trim())
+      setEditingCategory(null)
+      setEditingValue("")
+      await loadCategories()
+      notifyChange()
+      toast({ title: "Sucesso", description: "Categoria atualizada com sucesso" })
+    } catch {
+      toast({ title: "Erro", description: "Já existe uma categoria com este nome", variant: "destructive" })
     }
-
-    const updated = allCategories
-      .filter((cat) => cat !== "Nova")
-      .map((cat) => (cat === editingCategory ? newName : cat))
-
-    // Atualizar transações
-    updateTransactionsCategory(editingCategory!, newName)
-
-    saveCategories(updated)
-    setEditingCategory(null)
-    setEditingValue("")
-
-    toast({
-      title: "Sucesso",
-      description: "Categoria atualizada com sucesso",
-    })
   }
 
   const cancelEdit = () => {
@@ -181,89 +105,31 @@ export function CategoryManager({ type, onCategoriesChange }: CategoryManagerPro
     setEditingValue("")
   }
 
-  const confirmDelete = (category: string) => {
-    if (category === "Nova") return
+  const confirmDelete = (category: Category) => {
     setCategoryToDelete(category)
   }
 
-  const deleteCategory = async () => {
+  const handleDelete = async () => {
     if (!categoryToDelete || isDeleting) return
 
     setIsDeleting(true)
-
     try {
-      // Verificar se está sendo usada
-      const stored = localStorage.getItem("financial-transactions")
-      if (stored) {
-        const transactions = safeJSONParse<{ type: string; category: string }[]>(stored, [])
-        const isUsed = transactions.some((t) => t.type === type && categoriesMatch(t.category, categoryToDelete))
-
-        if (isUsed) {
-          toast({
-            title: "Erro",
-            description: "Esta categoria está sendo usada em transações existentes",
-            variant: "destructive",
-          })
-          setCategoryToDelete(null)
-          setIsDeleting(false)
-          return
-        }
-      }
-
-      // Remover categoria
-      const updated = allCategories.filter((cat) => cat !== categoryToDelete && cat !== "Nova")
-
-      // Salvar sem "Nova" primeiro, depois adicionar
-      localStorage.setItem(storageKey, JSON.stringify([...updated, "Nova"]))
-
-      // Atualizar estado local
-      setAllCategories([...updated, "Nova"])
-
-      // Disparar evento
-      window.dispatchEvent(new CustomEvent(`categories-updated-${type}`))
-
+      await deleteCategoryRequest(categoryToDelete.id)
       setCategoryToDelete(null)
-      setIsDeleting(false)
-
-      toast({
-        title: "Sucesso",
-        description: "Categoria removida com sucesso",
-      })
-    } catch (error) {
-      console.error("Erro ao deletar categoria:", error)
+      await loadCategories()
+      notifyChange()
+      toast({ title: "Sucesso", description: "Categoria removida com sucesso" })
+    } catch {
       toast({
         title: "Erro",
-        description: "Erro ao remover categoria",
+        description: "Esta categoria está sendo usada em transações existentes",
         variant: "destructive",
       })
       setCategoryToDelete(null)
+    } finally {
       setIsDeleting(false)
     }
   }
-
-  const updateTransactionsCategory = (oldCategory: string, newCategory: string) => {
-    try {
-      const stored = localStorage.getItem("financial-transactions")
-      if (stored) {
-        const transactions = safeJSONParse<{ type: string; category: string; description: string }[]>(stored, [])
-        const updated = transactions.map((t) => {
-          if (t.type === type && categoriesMatch(t.category, oldCategory)) {
-            return {
-              ...t,
-              category: newCategory,
-              description: t.description.replace(oldCategory, newCategory),
-            }
-          }
-          return t
-        })
-        localStorage.setItem("financial-transactions", JSON.stringify(updated))
-      }
-    } catch (error) {
-      console.error("Erro ao atualizar transações:", error)
-    }
-  }
-
-  const categoriesToShow = allCategories.filter((cat) => cat !== "Nova")
 
   return (
     <>
@@ -303,15 +169,15 @@ export function CategoryManager({ type, onCategoriesChange }: CategoryManagerPro
 
             {/* Lista de categorias */}
             <div>
-              <Label>Categorias Disponíveis ({categoriesToShow.length})</Label>
+              <Label>Categorias Disponíveis ({categories.length})</Label>
               <div className="mt-2 space-y-2 max-h-80 overflow-y-auto">
-                {categoriesToShow.length === 0 ? (
+                {categories.length === 0 ? (
                   <p className="text-sm text-muted-foreground italic">Nenhuma categoria encontrada.</p>
                 ) : (
                   <div className="space-y-2">
-                    {categoriesToShow.map((category) => (
-                      <div key={category} className="flex items-center gap-2 p-2 border rounded-lg">
-                        {editingCategory === category ? (
+                    {categories.map((category) => (
+                      <div key={category.id} className="flex items-center gap-2 p-2 border rounded-lg">
+                        {editingCategory?.id === category.id ? (
                           <>
                             <Input
                               value={editingValue}
@@ -333,7 +199,7 @@ export function CategoryManager({ type, onCategoriesChange }: CategoryManagerPro
                         ) : (
                           <>
                             <Badge variant="secondary" className="flex-1 justify-start">
-                              {category}
+                              {category.name}
                             </Badge>
                             <Button
                               size="sm"
@@ -376,13 +242,13 @@ export function CategoryManager({ type, onCategoriesChange }: CategoryManagerPro
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover a categoria "{categoryToDelete}"? Esta ação não pode ser desfeita.
+              Tem certeza que deseja remover a categoria "{categoryToDelete?.name}"? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={deleteCategory}
+              onClick={handleDelete}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

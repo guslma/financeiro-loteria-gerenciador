@@ -49,7 +49,7 @@ export function AppHeader() {
             <Calculator className="h-5 w-5 text-white" />
           </div>
           <span className="font-bold text-lg bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-            FinanceLot
+            Gestor de Loterias
           </span>
         </div>
 
@@ -88,7 +88,7 @@ export function AppHeader() {
                   <Calculator className="h-4 w-4 text-white" />
                 </div>
                 <span className="bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-                  FinanceLot
+                  Gestor de Loterias
                 </span>
               </SheetTitle>
               <SheetDescription>Sistema Financeiro para Loteria</SheetDescription>

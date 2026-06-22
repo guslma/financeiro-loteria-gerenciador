@@ -49,7 +49,7 @@ export function AppSidebar() {
       <SidebarHeader>
         <div className="flex items-center gap-2 px-4 py-2">
           <Calculator className="h-6 w-6" />
-          <span className="font-semibold">FinanceLot</span>
+          <span className="font-semibold">Gestor de Loterias</span>
         </div>
       </SidebarHeader>
       <SidebarContent>
