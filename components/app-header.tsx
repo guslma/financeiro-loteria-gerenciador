@@ -1,8 +1,8 @@
 "use client"
 
-import { Home, TrendingUp, TrendingDown, FileText, Calculator, Menu } from "lucide-react"
+import { Home, TrendingUp, TrendingDown, FileText, Calculator, Menu, LogOut } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -38,7 +38,18 @@ const items = [
 
 export function AppHeader() {
   const pathname = usePathname()
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" })
+    router.push("/login")
+    router.refresh()
+  }
+
+  if (pathname === "/login") {
+    return null
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full header-glass">
@@ -71,6 +82,10 @@ export function AppHeader() {
               </Button>
             </Link>
           ))}
+          <Button variant="ghost" className="flex items-center gap-2 hover:bg-white/50" onClick={handleLogout}>
+            <LogOut className="h-4 w-4" />
+            Sair
+          </Button>
         </nav>
 
         {/* Menu Mobile */}
@@ -113,6 +128,16 @@ export function AppHeader() {
                   </div>
                 </Link>
               ))}
+              <button
+                onClick={() => {
+                  setIsOpen(false)
+                  handleLogout()
+                }}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-white/50 hover:text-foreground transition-all duration-200"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="font-medium">Sair</span>
+              </button>
             </nav>
           </SheetContent>
         </Sheet>
