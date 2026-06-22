@@ -42,4 +42,14 @@ export const metadata = {
   title: "Gestor de Loterias",
   description: "Gestão financeira para lotéricas",
   generator: "v0.app",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Gestor de Loterias",
+  },
+}
+
+export const viewport = {
+  themeColor: "#4f46e5",
 }
