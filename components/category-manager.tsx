@@ -26,6 +26,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Settings, Plus, X, Edit2, Check } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { categoriesMatch } from "@/lib/categories"
+import { safeJSONParse } from "@/lib/storage"
 
 interface CategoryManagerProps {
   type: "receita" | "despesa"
@@ -56,8 +58,8 @@ export function CategoryManager({ type, onCategoriesChange }: CategoryManagerPro
     try {
       const stored = localStorage.getItem(storageKey)
       if (stored) {
-        const categories = JSON.parse(stored)
-        const validCategories = categories.filter((cat: string) => cat && cat.trim() !== "")
+        const categories = safeJSONParse<string[]>(stored, [])
+        const validCategories = categories.filter((cat) => cat && cat.trim() !== "")
 
         // Garantir que "Nova" está sempre no final
         const filtered = validCategories.filter((cat: string) => cat !== "Nova")
@@ -107,7 +109,7 @@ export function CategoryManager({ type, onCategoriesChange }: CategoryManagerPro
 
     const categoryName = newCategory.trim()
 
-    if (allCategories.includes(categoryName)) {
+    if (allCategories.some((cat) => categoriesMatch(cat, categoryName))) {
       toast({
         title: "Erro",
         description: "Esta categoria já existe",
@@ -145,7 +147,10 @@ export function CategoryManager({ type, onCategoriesChange }: CategoryManagerPro
 
     const newName = editingValue.trim()
 
-    if (newName !== editingCategory && allCategories.includes(newName)) {
+    if (
+      !categoriesMatch(newName, editingCategory ?? "") &&
+      allCategories.some((cat) => categoriesMatch(cat, newName))
+    ) {
       toast({
         title: "Erro",
         description: "Já existe uma categoria com este nome",
@@ -190,8 +195,8 @@ export function CategoryManager({ type, onCategoriesChange }: CategoryManagerPro
       // Verificar se está sendo usada
       const stored = localStorage.getItem("financial-transactions")
       if (stored) {
-        const transactions = JSON.parse(stored)
-        const isUsed = transactions.some((t: any) => t.type === type && t.category === categoryToDelete)
+        const transactions = safeJSONParse<{ type: string; category: string }[]>(stored, [])
+        const isUsed = transactions.some((t) => t.type === type && categoriesMatch(t.category, categoryToDelete))
 
         if (isUsed) {
           toast({
@@ -240,9 +245,9 @@ export function CategoryManager({ type, onCategoriesChange }: CategoryManagerPro
     try {
       const stored = localStorage.getItem("financial-transactions")
       if (stored) {
-        const transactions = JSON.parse(stored)
-        const updated = transactions.map((t: any) => {
-          if (t.type === type && t.category === oldCategory) {
+        const transactions = safeJSONParse<{ type: string; category: string; description: string }[]>(stored, [])
+        const updated = transactions.map((t) => {
+          if (t.type === type && categoriesMatch(t.category, oldCategory)) {
             return {
               ...t,
               category: newCategory,

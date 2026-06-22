@@ -18,10 +18,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Plus, Edit, Trash2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { CurrencyInput, parseCurrencyValue } from "@/components/currency-input"
 import { CategoryManager } from "@/components/category-manager"
+import { safeJSONParse } from "@/lib/storage"
 
 interface Receita {
   id: string
@@ -48,6 +59,7 @@ export default function Receitas() {
   const [allCategories, setAllCategories] = useState<string[]>([])
   const [sortBy, setSortBy] = useState<"date" | "amount" | "category">("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [receitaToDelete, setReceitaToDelete] = useState<Receita | null>(null)
 
   useEffect(() => {
     loadReceitas()
@@ -66,24 +78,17 @@ export default function Receitas() {
   }, [])
 
   const loadReceitas = () => {
-    try {
-      const stored = localStorage.getItem("financial-transactions")
-      if (stored) {
-        const transactions = JSON.parse(stored)
-        const receitasOnly = transactions.filter((t: any) => t.type === "receita")
-        setReceitas(receitasOnly)
-      }
-    } catch (error) {
-      console.error("Erro ao carregar receitas:", error)
-      setReceitas([])
-    }
+    const stored = localStorage.getItem("financial-transactions")
+    const transactions = safeJSONParse<(Receita & { type: string })[]>(stored, [])
+    const receitasOnly = transactions.filter((t) => t.type === "receita")
+    setReceitas(receitasOnly)
   }
 
   const loadCategories = () => {
     try {
       const stored = localStorage.getItem("all-categories-receita")
       if (stored) {
-        const categories = JSON.parse(stored)
+        const categories = safeJSONParse<string[]>(stored, defaultCategories)
         setAllCategories(categories)
       } else {
         const categoriesWithNova = [...defaultCategories, "Nova"]
@@ -100,8 +105,8 @@ export default function Receitas() {
   const saveToStorage = (newReceitas: Receita[]) => {
     try {
       const stored = localStorage.getItem("financial-transactions")
-      const allTransactions = stored ? JSON.parse(stored) : []
-      const despesas = allTransactions.filter((t: any) => t.type === "despesa")
+      const allTransactions = safeJSONParse<(Receita & { type: string })[]>(stored, [])
+      const despesas = allTransactions.filter((t) => t.type === "despesa")
       const receitasWithType = newReceitas.map((r) => ({ ...r, type: "receita" }))
       const updatedTransactions = [...despesas, ...receitasWithType]
       localStorage.setItem("financial-transactions", JSON.stringify(updatedTransactions))
@@ -133,8 +138,8 @@ export default function Receitas() {
     // Se é uma categoria personalizada nova, salvar ela
     if (formData.category === "Nova" && customCategory && !allCategories.includes(customCategory)) {
       const stored = localStorage.getItem("all-categories-receita")
-      const existing = stored ? JSON.parse(stored) : []
-      const updated = existing.filter((cat: string) => cat !== "Nova")
+      const existing = safeJSONParse<string[]>(stored, [])
+      const updated = existing.filter((cat) => cat !== "Nova")
       updated.push(customCategory)
       updated.push("Nova")
       localStorage.setItem("all-categories-receita", JSON.stringify(updated))
@@ -142,7 +147,7 @@ export default function Receitas() {
     }
 
     const newReceita: Receita = {
-      id: editingReceita?.id || Date.now().toString(),
+      id: editingReceita?.id || crypto.randomUUID(),
       date: formData.date,
       description: `${categoryToSave} - ${new Date(formData.date).toLocaleDateString("pt-BR")}`,
       amount: amountValue,
@@ -194,10 +199,12 @@ export default function Receitas() {
     setIsDialogOpen(true)
   }
 
-  const handleDelete = (id: string) => {
-    const updated = receitas.filter((r) => r.id !== id)
+  const handleDelete = () => {
+    if (!receitaToDelete) return
+    const updated = receitas.filter((r) => r.id !== receitaToDelete.id)
     setReceitas(updated)
     saveToStorage(updated)
+    setReceitaToDelete(null)
     toast({ title: "Sucesso", description: "Receita removida" })
   }
 
@@ -379,7 +386,7 @@ export default function Receitas() {
                       <Button variant="outline" size="sm" onClick={() => handleEdit(receita)}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDelete(receita.id)}>
+                      <Button variant="outline" size="sm" onClick={() => setReceitaToDelete(receita)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -390,6 +397,26 @@ export default function Receitas() {
           </Table>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!receitaToDelete} onOpenChange={(open) => !open && setReceitaToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover esta receita? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

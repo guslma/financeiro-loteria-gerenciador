@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { FileText, Filter } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { safeJSONParse } from "@/lib/storage"
 
 interface Transaction {
   id: string
@@ -49,11 +50,9 @@ export default function Relatorios() {
 
   useEffect(() => {
     const stored = localStorage.getItem("financial-transactions")
-    if (stored) {
-      const data = JSON.parse(stored)
-      setTransactions(data)
-      setFilteredTransactions(data)
-    }
+    const data = safeJSONParse<Transaction[]>(stored, [])
+    setTransactions(data)
+    setFilteredTransactions(data)
   }, [])
 
   const applyFilters = () => {

@@ -18,10 +18,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Plus, Edit, Trash2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { CurrencyInput, parseCurrencyValue } from "@/components/currency-input"
 import { CategoryManager } from "@/components/category-manager"
+import { safeJSONParse } from "@/lib/storage"
 
 interface Despesa {
   id: string
@@ -48,6 +59,7 @@ export default function Despesas() {
   const [allCategories, setAllCategories] = useState<string[]>([])
   const [sortBy, setSortBy] = useState<"date" | "amount" | "category">("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [despesaToDelete, setDespesaToDelete] = useState<Despesa | null>(null)
 
   useEffect(() => {
     loadDespesas()
@@ -66,24 +78,17 @@ export default function Despesas() {
   }, [])
 
   const loadDespesas = () => {
-    try {
-      const stored = localStorage.getItem("financial-transactions")
-      if (stored) {
-        const transactions = JSON.parse(stored)
-        const despesasOnly = transactions.filter((t: any) => t.type === "despesa")
-        setDespesas(despesasOnly)
-      }
-    } catch (error) {
-      console.error("Erro ao carregar despesas:", error)
-      setDespesas([])
-    }
+    const stored = localStorage.getItem("financial-transactions")
+    const transactions = safeJSONParse<(Despesa & { type: string })[]>(stored, [])
+    const despesasOnly = transactions.filter((t) => t.type === "despesa")
+    setDespesas(despesasOnly)
   }
 
   const loadCategories = () => {
     try {
       const stored = localStorage.getItem("all-categories-despesa")
       if (stored) {
-        const categories = JSON.parse(stored)
+        const categories = safeJSONParse<string[]>(stored, defaultCategories)
         setAllCategories(categories)
       } else {
         const categoriesWithNova = [...defaultCategories, "Nova"]
@@ -100,8 +105,8 @@ export default function Despesas() {
   const saveToStorage = (newDespesas: Despesa[]) => {
     try {
       const stored = localStorage.getItem("financial-transactions")
-      const allTransactions = stored ? JSON.parse(stored) : []
-      const receitas = allTransactions.filter((t: any) => t.type === "receita")
+      const allTransactions = safeJSONParse<(Despesa & { type: string })[]>(stored, [])
+      const receitas = allTransactions.filter((t) => t.type === "receita")
       const despesasWithType = newDespesas.map((d) => ({ ...d, type: "despesa" }))
       const updatedTransactions = [...receitas, ...despesasWithType]
       localStorage.setItem("financial-transactions", JSON.stringify(updatedTransactions))
@@ -133,8 +138,8 @@ export default function Despesas() {
     // Se é uma categoria personalizada nova, salvar ela
     if (formData.category === "Nova" && customCategory && !allCategories.includes(customCategory)) {
       const stored = localStorage.getItem("all-categories-despesa")
-      const existing = stored ? JSON.parse(stored) : []
-      const updated = existing.filter((cat: string) => cat !== "Nova")
+      const existing = safeJSONParse<string[]>(stored, [])
+      const updated = existing.filter((cat) => cat !== "Nova")
       updated.push(customCategory)
       updated.push("Nova")
       localStorage.setItem("all-categories-despesa", JSON.stringify(updated))
@@ -142,7 +147,7 @@ export default function Despesas() {
     }
 
     const newDespesa: Despesa = {
-      id: editingDespesa?.id || Date.now().toString(),
+      id: editingDespesa?.id || crypto.randomUUID(),
       date: formData.date,
       description: `${categoryToSave} - ${new Date(formData.date).toLocaleDateString("pt-BR")}`,
       amount: amountValue,
@@ -194,10 +199,12 @@ export default function Despesas() {
     setIsDialogOpen(true)
   }
 
-  const handleDelete = (id: string) => {
-    const updated = despesas.filter((d) => d.id !== id)
+  const handleDelete = () => {
+    if (!despesaToDelete) return
+    const updated = despesas.filter((d) => d.id !== despesaToDelete.id)
     setDespesas(updated)
     saveToStorage(updated)
+    setDespesaToDelete(null)
     toast({ title: "Sucesso", description: "Despesa removida" })
   }
 
@@ -379,7 +386,7 @@ export default function Despesas() {
                       <Button variant="outline" size="sm" onClick={() => handleEdit(despesa)}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDelete(despesa.id)}>
+                      <Button variant="outline" size="sm" onClick={() => setDespesaToDelete(despesa)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -390,6 +397,26 @@ export default function Despesas() {
           </Table>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!despesaToDelete} onOpenChange={(open) => !open && setDespesaToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover esta despesa? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

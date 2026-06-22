@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, TrendingUp, TrendingDown } from "lucide-react"
+import { safeJSONParse } from "@/lib/storage"
+import { categoriesMatch } from "@/lib/categories"
 import {
   Bar,
   BarChart,
@@ -35,180 +37,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const stored = localStorage.getItem("financial-transactions")
-    if (stored) {
-      setTransactions(JSON.parse(stored))
-    } else {
-      // Dados de exemplo mais completos para demonstrar os gráficos
-      const mockData: Transaction[] = [
-        // Receitas
-        {
-          id: "1",
-          date: "2024-01-15",
-          description: "Pagamento contas",
-          amount: 1500,
-          category: "Comissão Contas",
-          type: "receita",
-          paymentMethod: "",
-        },
-        {
-          id: "2",
-          date: "2024-01-20",
-          description: "Bolão semanal",
-          amount: 800,
-          category: "Comissão Bolão",
-          type: "receita",
-          paymentMethod: "",
-        },
-        {
-          id: "3",
-          date: "2024-01-25",
-          description: "Jogos individuais",
-          amount: 600,
-          category: "Comissão Jogos",
-          type: "receita",
-          paymentMethod: "",
-        },
-        {
-          id: "4",
-          date: "2024-02-10",
-          description: "Pagamento contas",
-          amount: 1800,
-          category: "Comissão Contas",
-          type: "receita",
-          paymentMethod: "",
-        },
-        {
-          id: "5",
-          date: "2024-02-15",
-          description: "Bolão mensal",
-          amount: 1200,
-          category: "Comissão Bolão",
-          type: "receita",
-          paymentMethod: "",
-        },
-        {
-          id: "6",
-          date: "2024-02-28",
-          description: "Jogos individuais",
-          amount: 750,
-          category: "Comissão Jogos",
-          type: "receita",
-          paymentMethod: "",
-        },
-        {
-          id: "7",
-          date: "2024-03-05",
-          description: "Pagamento contas",
-          amount: 2000,
-          category: "Comissão Contas",
-          type: "receita",
-          paymentMethod: "",
-        },
-        {
-          id: "8",
-          date: "2024-03-12",
-          description: "Bolão especial",
-          amount: 1500,
-          category: "Comissão Bolão",
-          type: "receita",
-          paymentMethod: "",
-        },
-        {
-          id: "9",
-          date: "2024-03-20",
-          description: "Jogos individuais",
-          amount: 900,
-          category: "Comissão Jogos",
-          type: "receita",
-          paymentMethod: "",
-        },
-
-        // Despesas
-        {
-          id: "10",
-          date: "2024-01-05",
-          description: "Salário funcionário",
-          amount: 1200,
-          category: "salários",
-          type: "despesa",
-          paymentMethod: "",
-        },
-        {
-          id: "11",
-          date: "2024-01-10",
-          description: "Conta de luz",
-          amount: 150,
-          category: "contas fixas",
-          type: "despesa",
-          paymentMethod: "",
-        },
-        {
-          id: "12",
-          date: "2024-01-15",
-          description: "Material escritório",
-          amount: 200,
-          category: "suprimentos",
-          type: "despesa",
-          paymentMethod: "",
-        },
-        {
-          id: "13",
-          date: "2024-02-05",
-          description: "Salário funcionário",
-          amount: 1200,
-          category: "salários",
-          type: "despesa",
-          paymentMethod: "",
-        },
-        {
-          id: "14",
-          date: "2024-02-10",
-          description: "Conta de luz",
-          amount: 180,
-          category: "contas fixas",
-          type: "despesa",
-          paymentMethod: "",
-        },
-        {
-          id: "15",
-          date: "2024-02-20",
-          description: "Manutenção impressora",
-          amount: 300,
-          category: "manutenção",
-          type: "despesa",
-          paymentMethod: "",
-        },
-        {
-          id: "16",
-          date: "2024-03-05",
-          description: "Salário funcionário",
-          amount: 1200,
-          category: "salários",
-          type: "despesa",
-          paymentMethod: "",
-        },
-        {
-          id: "17",
-          date: "2024-03-10",
-          description: "Conta de luz",
-          amount: 160,
-          category: "contas fixas",
-          type: "despesa",
-          paymentMethod: "",
-        },
-        {
-          id: "18",
-          date: "2024-03-25",
-          description: "Papel térmico",
-          amount: 250,
-          category: "suprimentos",
-          type: "despesa",
-          paymentMethod: "",
-        },
-      ]
-      setTransactions(mockData)
-      localStorage.setItem("financial-transactions", JSON.stringify(mockData))
-    }
+    setTransactions(safeJSONParse<Transaction[]>(stored, []))
   }, [])
 
   // Processar dados para gráficos mensais
@@ -228,6 +57,15 @@ export default function Dashboard() {
       })
     }
 
+    const sumByCategory = (
+      monthTransactions: Transaction[],
+      type: Transaction["type"],
+      category: string,
+    ) =>
+      monthTransactions
+        .filter((t) => t.type === type && categoriesMatch(t.category, category))
+        .reduce((sum, t) => sum + t.amount, 0)
+
     // Processar dados mensais para gráficos
     const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
     const monthlyData = months.map((month, index) => {
@@ -236,33 +74,13 @@ export default function Dashboard() {
         return transactionMonth === index
       })
 
-      const comissaoContas = monthTransactions
-        .filter((t) => t.type === "receita" && t.category === "Comissão Contas")
-        .reduce((sum, t) => sum + t.amount, 0)
-
-      const comissaoBolao = monthTransactions
-        .filter((t) => t.type === "receita" && t.category === "Comissão Bolão")
-        .reduce((sum, t) => sum + t.amount, 0)
-
-      const comissaoJogos = monthTransactions
-        .filter((t) => t.type === "receita" && t.category === "Comissão Jogos")
-        .reduce((sum, t) => sum + t.amount, 0)
-
-      const salarios = monthTransactions
-        .filter((t) => t.type === "despesa" && (t.category === "Salários" || t.category === "salários"))
-        .reduce((sum, t) => sum + t.amount, 0)
-
-      const contasFixas = monthTransactions
-        .filter((t) => t.type === "despesa" && (t.category === "Contas Fixas" || t.category === "contas fixas"))
-        .reduce((sum, t) => sum + t.amount, 0)
-
-      const suprimentos = monthTransactions
-        .filter((t) => t.type === "despesa" && (t.category === "Suprimentos" || t.category === "suprimentos"))
-        .reduce((sum, t) => sum + t.amount, 0)
-
-      const manutencao = monthTransactions
-        .filter((t) => t.type === "despesa" && (t.category === "Manutenção" || t.category === "manutenção"))
-        .reduce((sum, t) => sum + t.amount, 0)
+      const comissaoContas = sumByCategory(monthTransactions, "receita", "Comissão Contas")
+      const comissaoBolao = sumByCategory(monthTransactions, "receita", "Comissão Bolão")
+      const comissaoJogos = sumByCategory(monthTransactions, "receita", "Comissão Jogos")
+      const salarios = sumByCategory(monthTransactions, "despesa", "Salários")
+      const contasFixas = sumByCategory(monthTransactions, "despesa", "Contas Fixas")
+      const suprimentos = sumByCategory(monthTransactions, "despesa", "Suprimentos")
+      const manutencao = sumByCategory(monthTransactions, "despesa", "Manutenção")
 
       const totalReceitas = comissaoContas + comissaoBolao + comissaoJogos
       const totalDespesas = salarios + contasFixas + suprimentos + manutencao
