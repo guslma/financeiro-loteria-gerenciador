@@ -11,6 +11,7 @@ import Link from "next/link"
 import { toast } from "@/hooks/use-toast"
 import { fetchTransactions } from "@/lib/api-client"
 import type { Transaction } from "@/lib/api-client"
+import { getYear, getMonthIndex, formatDatePtBR } from "@/lib/dates"
 
 interface MonthlyData {
   [category: string]: {
@@ -27,15 +28,47 @@ interface YearlyReport {
   saldoMensal: number[]
 }
 
+type Filters = {
+  startDate: string
+  endDate: string
+  type: string
+  category: string
+  filterType: string
+  selectedYear: number
+  selectedMonth: number
+}
+
+function filterTransactions(list: Transaction[], filters: Filters): Transaction[] {
+  let filtered = [...list]
+
+  if (filters.filterType === "month") {
+    filtered = filtered.filter(
+      (t) => getMonthIndex(t.date) === filters.selectedMonth && getYear(t.date) === filters.selectedYear,
+    )
+  } else if (filters.filterType === "year") {
+    filtered = filtered.filter((t) => getYear(t.date) === filters.selectedYear)
+  }
+
+  if (filters.type && filters.type !== "todos") {
+    filtered = filtered.filter((t) => t.type === filters.type)
+  }
+
+  if (filters.category && filters.category !== "todas") {
+    filtered = filtered.filter((t) => t.category === filters.category)
+  }
+
+  return filtered
+}
+
 export default function Relatorios() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<Filters>({
     startDate: "",
     endDate: "",
     type: "",
     category: "",
-    filterType: "year", // Mudado de "custom" para "year"
+    filterType: "year",
     selectedYear: new Date().getFullYear(),
     selectedMonth: new Date().getMonth(),
   })
@@ -44,51 +77,40 @@ export default function Relatorios() {
     fetchTransactions()
       .then((data) => {
         setTransactions(data)
-        setFilteredTransactions(data)
+        // Por padrão, mostra o ano mais recente que tem dados — evita um
+        // relatório vazio quando o ano atual ainda não tem nenhum lançamento.
+        const years = data.map((t) => getYear(t.date))
+        const defaultYear = years.length > 0 ? Math.max(...years) : new Date().getFullYear()
+        const initialFilters: Filters = { ...filters, selectedYear: defaultYear }
+        setFilters(initialFilters)
+        setFilteredTransactions(filterTransactions(data, initialFilters))
       })
       .catch((error) => console.error("Erro ao carregar transações:", error))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const availableYears = [...new Set([new Date().getFullYear(), ...transactions.map((t) => getYear(t.date))])].sort(
+    (a, b) => b - a,
+  )
+
   const applyFilters = () => {
-    let filtered = [...transactions]
-
-    // Aplicar filtros baseado no tipo selecionado
-    if (filters.filterType === "month") {
-      filtered = transactions.filter((t) => {
-        const transactionDate = new Date(t.date)
-        return (
-          transactionDate.getMonth() === filters.selectedMonth && transactionDate.getFullYear() === filters.selectedYear
-        )
-      })
-    } else if (filters.filterType === "year") {
-      filtered = transactions.filter((t) => {
-        const transactionDate = new Date(t.date)
-        return transactionDate.getFullYear() === filters.selectedYear
-      })
-    }
-
-    if (filters.type && filters.type !== "todos") {
-      filtered = filtered.filter((t) => t.type === filters.type)
-    }
-
-    if (filters.category && filters.category !== "todas") {
-      filtered = filtered.filter((t) => t.category === filters.category)
-    }
-
-    setFilteredTransactions(filtered)
+    setFilteredTransactions(filterTransactions(transactions, filters))
   }
 
   const clearFilters = () => {
-    setFilters({
+    const years = transactions.map((t) => getYear(t.date))
+    const defaultYear = years.length > 0 ? Math.max(...years) : new Date().getFullYear()
+    const defaults: Filters = {
       startDate: "",
       endDate: "",
       type: "",
       category: "",
-      filterType: "year", // Mudado de "custom" para "year"
-      selectedYear: new Date().getFullYear(),
+      filterType: "year",
+      selectedYear: defaultYear,
       selectedMonth: new Date().getMonth(),
-    })
-    setFilteredTransactions(transactions)
+    }
+    setFilters(defaults)
+    setFilteredTransactions(filterTransactions(transactions, defaults))
   }
 
   const processDataForPDF = (): YearlyReport[] => {
@@ -96,9 +118,8 @@ export default function Relatorios() {
 
     // Agrupar transações por ano
     filteredTransactions.forEach((transaction) => {
-      const date = new Date(transaction.date)
-      const year = date.getFullYear()
-      const month = date.getMonth()
+      const year = getYear(transaction.date)
+      const month = getMonthIndex(transaction.date)
 
       if (!yearlyReports[year]) {
         yearlyReports[year] = {
@@ -562,7 +583,7 @@ export default function Relatorios() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                      {availableYears.map((year) => (
                         <SelectItem key={year} value={year.toString()}>
                           {year}
                         </SelectItem>
@@ -752,7 +773,7 @@ export default function Relatorios() {
             <TableBody>
               {filteredTransactions.map((transaction) => (
                 <TableRow key={transaction.id}>
-                  <TableCell>{new Date(transaction.date).toLocaleDateString("pt-BR")}</TableCell>
+                  <TableCell>{formatDatePtBR(transaction.date)}</TableCell>
                   <TableCell>
                     <span
                       className={`capitalize px-2 py-1 rounded-full text-xs ${

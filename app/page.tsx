@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, TrendingUp, TrendingDown } from "lucide-react"
 import { categoriesMatch } from "@/lib/categories"
+import { getYear, getMonthIndex } from "@/lib/dates"
 import { fetchTransactions } from "@/lib/api-client"
 import type { Transaction } from "@/lib/api-client"
 import {
@@ -38,15 +39,11 @@ export default function Dashboard() {
 
     // Aplicar filtros baseado no tipo selecionado
     if (filterType === "month") {
-      filteredTransactions = transactions.filter((t) => {
-        const transactionDate = new Date(t.date)
-        return transactionDate.getMonth() === selectedMonth && transactionDate.getFullYear() === selectedYear
-      })
+      filteredTransactions = transactions.filter(
+        (t) => getMonthIndex(t.date) === selectedMonth && getYear(t.date) === selectedYear,
+      )
     } else if (filterType === "year") {
-      filteredTransactions = transactions.filter((t) => {
-        const transactionDate = new Date(t.date)
-        return transactionDate.getFullYear() === selectedYear
-      })
+      filteredTransactions = transactions.filter((t) => getYear(t.date) === selectedYear)
     }
 
     const sumByCategory = (
@@ -61,10 +58,7 @@ export default function Dashboard() {
     // Processar dados mensais para gráficos
     const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
     const monthlyData = months.map((month, index) => {
-      const monthTransactions = filteredTransactions.filter((t) => {
-        const transactionMonth = new Date(t.date).getMonth()
-        return transactionMonth === index
-      })
+      const monthTransactions = filteredTransactions.filter((t) => getMonthIndex(t.date) === index)
 
       const comissaoContas = sumByCategory(monthTransactions, "receita", "Comissão Contas")
       const comissaoBolao = sumByCategory(monthTransactions, "receita", "Comissão Bolão")
@@ -106,6 +100,10 @@ export default function Dashboard() {
 
   const { monthlyData, filteredTransactions } = processFilteredData()
 
+  const availableYears = [...new Set([new Date().getFullYear(), ...transactions.map((t) => getYear(t.date))])].sort(
+    (a, b) => b - a,
+  )
+
   const totalReceitas = filteredTransactions.filter((t) => t.type === "receita").reduce((sum, t) => sum + t.amount, 0)
   const totalDespesas = filteredTransactions.filter((t) => t.type === "despesa").reduce((sum, t) => sum + t.amount, 0)
   const saldo = totalReceitas - totalDespesas
@@ -138,7 +136,7 @@ export default function Dashboard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                  {availableYears.map((year) => (
                     <SelectItem key={year} value={year.toString()}>
                       {year}
                     </SelectItem>
@@ -182,7 +180,7 @@ export default function Dashboard() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                {availableYears.map((year) => (
                   <SelectItem key={year} value={year.toString()}>
                     {year}
                   </SelectItem>

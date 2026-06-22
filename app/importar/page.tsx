@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
 import { previewImport, confirmImport } from "@/lib/api-client"
+import { formatDatePtBR } from "@/lib/dates"
 import type { ImportPreview } from "@/lib/api-client"
 
 export default function ImportarPage() {
@@ -118,7 +119,7 @@ export default function ImportarPage() {
                 <TableBody>
                   {preview.preview.map((t, index) => (
                     <TableRow key={index}>
-                      <TableCell>{new Date(t.date).toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell>{formatDatePtBR(t.date)}</TableCell>
                       <TableCell className="capitalize">{t.type}</TableCell>
                       <TableCell>{t.category}</TableCell>
                       <TableCell>{t.description}</TableCell>

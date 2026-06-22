@@ -42,6 +42,7 @@ import {
   uploadReceipt,
 } from "@/lib/api-client"
 import type { Transaction } from "@/lib/api-client"
+import { formatDatePtBR } from "@/lib/dates"
 
 interface TransactionManagerProps {
   type: "receita" | "despesa"
@@ -134,7 +135,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
 
     const payload = {
       date: formData.date,
-      description: `${categoryToSave} - ${new Date(formData.date).toLocaleDateString("pt-BR")}`,
+      description: `${categoryToSave} - ${formatDatePtBR(formData.date)}`,
       amount: amountValue,
       category: categoryToSave,
       ...(receiptPhotoPath ? { receiptPhotoPath } : {}),
@@ -227,7 +228,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
       let comparison = 0
       switch (sortBy) {
         case "date":
-          comparison = new Date(a.date).getTime() - new Date(b.date).getTime()
+          comparison = a.date.localeCompare(b.date)
           break
         case "amount":
           comparison = a.amount - b.amount
@@ -388,7 +389,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
             <TableBody>
               {getSortedTransactions().map((transaction) => (
                 <TableRow key={transaction.id}>
-                  <TableCell>{new Date(transaction.date).toLocaleDateString("pt-BR")}</TableCell>
+                  <TableCell>{formatDatePtBR(transaction.date)}</TableCell>
                   <TableCell className="capitalize">
                     <div className="flex items-center gap-2">
                       {transaction.category}
