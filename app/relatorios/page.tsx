@@ -528,9 +528,9 @@ export default function Relatorios() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Relatórios</h1>
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold sm:text-3xl">Relatórios</h1>
+        <div className="flex flex-wrap gap-2">
           <Button onClick={exportToPDF} variant="outline">
             <FileText className="mr-2 h-4 w-4" />
             Exportar PDF
@@ -753,42 +753,73 @@ export default function Relatorios() {
           <CardDescription>{filteredTransactions.length} transação(ões) encontrada(s)</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTransactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell>{formatDatePtBR(transaction.date)}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`capitalize px-2 py-1 rounded-full text-xs ${
-                        transaction.type === "receita" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {transaction.type}
-                    </span>
-                  </TableCell>
-                  <TableCell>{transaction.description}</TableCell>
-                  <TableCell className="capitalize">{transaction.category}</TableCell>
-                  <TableCell
-                    className={`text-right font-medium ${
-                      transaction.type === "receita" ? "text-green-600" : "text-red-600"
-                    }`}
+          {/* Mobile: lista em cards — uma tabela de 5 colunas não cabe numa
+              tela estreita sem virar scroll horizontal escondido. */}
+          <div className="space-y-3 sm:hidden">
+            {filteredTransactions.map((transaction) => (
+              <div key={transaction.id} className="rounded-lg border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-muted-foreground">{formatDatePtBR(transaction.date)}</span>
+                  <span
+                    className={`font-medium ${transaction.type === "receita" ? "text-green-600" : "text-red-600"}`}
                   >
                     R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </TableCell>
+                  </span>
+                </div>
+                <p className="mt-1 text-sm">{transaction.description}</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <span
+                    className={`capitalize px-2 py-1 rounded-full text-xs ${
+                      transaction.type === "receita" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {transaction.type}
+                  </span>
+                  <span className="text-sm text-muted-foreground capitalize">{transaction.category}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tablet/desktop: tabela */}
+          <div className="hidden sm:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredTransactions.map((transaction) => (
+                  <TableRow key={transaction.id}>
+                    <TableCell>{formatDatePtBR(transaction.date)}</TableCell>
+                    <TableCell>
+                      <span
+                        className={`capitalize px-2 py-1 rounded-full text-xs ${
+                          transaction.type === "receita" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {transaction.type}
+                      </span>
+                    </TableCell>
+                    <TableCell>{transaction.description}</TableCell>
+                    <TableCell className="capitalize">{transaction.category}</TableCell>
+                    <TableCell
+                      className={`text-right font-medium ${
+                        transaction.type === "receita" ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -244,15 +244,15 @@ export function TransactionManager({ type }: TransactionManagerProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">{l.title}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">{l.title}</h1>
           <p className="text-muted-foreground">
             Total: R${" "}
             {transactions.reduce((sum, t) => sum + t.amount, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <CategoryManager type={type} />
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -261,7 +261,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
                 {l.newButton}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>{editingTransaction ? `Editar ${l.singular}` : l.newButton}</DialogTitle>
                 <DialogDescription>
@@ -348,13 +348,13 @@ export function TransactionManager({ type }: TransactionManagerProps) {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:mb-4">
             <div>
               <CardTitle>{l.listTitle}</CardTitle>
               <CardDescription>{l.listDescription}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Label className="text-sm font-medium">Ordenar por:</Label>
+              <Label className="text-sm font-medium whitespace-nowrap">Ordenar por:</Label>
               <Select value={sortBy} onValueChange={(value: "date" | "amount" | "category") => setSortBy(value)}>
                 <SelectTrigger className="w-[130px]">
                   <SelectValue />
@@ -377,52 +377,94 @@ export function TransactionManager({ type }: TransactionManagerProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {getSortedTransactions().map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell>{formatDatePtBR(transaction.date)}</TableCell>
-                  <TableCell className="capitalize">
-                    <div className="flex items-center gap-2">
-                      {transaction.category}
-                      {transaction.receiptPhotoPath && (
-                        <a
-                          href={transaction.receiptPhotoPath}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Ver comprovante"
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          <Camera className="h-4 w-4" />
-                        </a>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className={`text-right font-medium ${l.amountColor}`}>
+          {/* Mobile: lista em cards — uma tabela de 4 colunas não cabe numa
+              tela estreita sem virar scroll horizontal escondido. */}
+          <div className="space-y-3 sm:hidden">
+            {getSortedTransactions().map((transaction) => (
+              <div key={transaction.id} className="rounded-lg border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-muted-foreground">{formatDatePtBR(transaction.date)}</span>
+                  <span className={`font-medium ${l.amountColor}`}>
                     R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(transaction)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setTransactionToDelete(transaction)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm capitalize">
+                    {transaction.category}
+                    {transaction.receiptPhotoPath && (
+                      <a
+                        href={transaction.receiptPhotoPath}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Ver comprovante"
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <Camera className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleEdit(transaction)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setTransactionToDelete(transaction)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tablet/desktop: tabela */}
+          <div className="hidden sm:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {getSortedTransactions().map((transaction) => (
+                  <TableRow key={transaction.id}>
+                    <TableCell>{formatDatePtBR(transaction.date)}</TableCell>
+                    <TableCell className="capitalize">
+                      <div className="flex items-center gap-2">
+                        {transaction.category}
+                        {transaction.receiptPhotoPath && (
+                          <a
+                            href={transaction.receiptPhotoPath}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Ver comprovante"
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <Camera className="h-4 w-4" />
+                          </a>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${l.amountColor}`}>
+                      R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleEdit(transaction)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setTransactionToDelete(transaction)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
