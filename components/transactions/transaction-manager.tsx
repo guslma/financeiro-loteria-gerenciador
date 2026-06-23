@@ -279,7 +279,10 @@ export function TransactionManager({ type }: TransactionManagerProps) {
                 {l.newButton}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[425px]">
+            <DialogContent
+              className="max-h-[90vh] overflow-y-auto sm:max-w-[425px]"
+              onOpenAutoFocus={(e) => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle>{editingTransaction ? `Editar ${l.singular}` : l.newButton}</DialogTitle>
                 <DialogDescription>
