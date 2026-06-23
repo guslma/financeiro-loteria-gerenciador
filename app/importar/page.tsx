@@ -50,7 +50,11 @@ export default function ImportarPage() {
     setIsLoading(true)
     try {
       const result = await confirmImport(file)
-      toast({ title: "Importação concluída", description: `${result.imported} transações importadas` })
+      const description =
+        result.duplicates > 0
+          ? `${result.imported} transações importadas, ${result.duplicates} já existiam e foram ignoradas`
+          : `${result.imported} transações importadas`
+      toast({ title: "Importação concluída", description })
       setFile(null)
       setPreview(null)
     } catch (error) {

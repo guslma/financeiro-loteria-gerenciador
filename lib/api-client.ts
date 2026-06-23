@@ -82,7 +82,7 @@ export function previewImport(file: File): Promise<ImportPreview> {
   return uploadFile("/api/import?dryRun=true", file)
 }
 
-export function confirmImport(file: File): Promise<{ imported: number; skipped: number }> {
+export function confirmImport(file: File): Promise<{ imported: number; skipped: number; duplicates: number }> {
   return uploadFile("/api/import", file)
 }
 

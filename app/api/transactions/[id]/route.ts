@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/server/prisma"
 import { resolveCategoryId } from "@/lib/categories"
+import { deleteReceiptFile } from "@/lib/server/receipt-storage"
 
 const updateTransactionSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -45,11 +46,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     include: { category: true },
   })
 
+  if (receiptPhotoPath && existing.receiptPhotoPath && existing.receiptPhotoPath !== receiptPhotoPath) {
+    await deleteReceiptFile(existing.receiptPhotoPath)
+  }
+
   return NextResponse.json(serializeTransaction(updated))
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const existing = await prisma.transaction.findUnique({ where: { id } })
   await prisma.transaction.delete({ where: { id } })
+  await deleteReceiptFile(existing?.receiptPhotoPath)
   return NextResponse.json({ ok: true })
 }

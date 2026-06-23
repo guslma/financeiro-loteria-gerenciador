@@ -38,14 +38,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Nenhuma transação reconhecida no arquivo" }, { status: 400 })
   }
 
+  let duplicates = 0
+
   await prisma.$transaction(async (tx) => {
     for (const t of transactions) {
       const categoryId = await resolveCategoryId(tx, t.category, t.type)
+
+      const existing = await tx.transaction.findFirst({
+        where: { date: t.date, amount: t.amount, type: t.type, description: t.description, categoryId },
+      })
+      if (existing) {
+        duplicates += 1
+        continue
+      }
+
       await tx.transaction.create({
         data: { date: t.date, description: t.description, amount: t.amount, type: t.type, categoryId },
       })
     }
   })
 
-  return NextResponse.json({ imported: transactions.length, skipped })
+  return NextResponse.json({ imported: transactions.length - duplicates, skipped, duplicates })
 }
