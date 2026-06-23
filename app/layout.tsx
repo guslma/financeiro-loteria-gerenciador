@@ -15,14 +15,6 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={inter.className}>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-green-50 relative">
-          {/* Imagem de fundo */}
-          <div
-            className="fixed inset-0 bg-cover bg-center bg-no-repeat opacity-5 pointer-events-none"
-            style={{
-              backgroundImage: "url('/images/financial-bg.png')",
-            }}
-          />
-
           {/* Overlay sutil */}
           <div className="fixed inset-0 bg-gradient-to-br from-white/80 via-transparent to-white/60 pointer-events-none" />
 
@@ -43,6 +35,14 @@ export const metadata = {
   description: "Gestão financeira para lotéricas",
   generator: "v0.app",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)" },
+      { url: "/icon-dark-32x32.png", media: "(prefers-color-scheme: dark)" },
+      { url: "/icon-192x192.png", sizes: "192x192" },
+    ],
+    apple: "/apple-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

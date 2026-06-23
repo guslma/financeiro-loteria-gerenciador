@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, TrendingUp, TrendingDown, FileText, Calculator, Menu, LogOut } from "lucide-react"
+import { Home, TrendingUp, TrendingDown, FileText, Clover, Menu, LogOut } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
@@ -57,7 +57,7 @@ export function AppHeader() {
         {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="p-2 bg-gradient-to-br from-blue-500 to-green-500 rounded-lg float-animation">
-            <Calculator className="h-5 w-5 text-white" />
+            <Clover className="h-5 w-5 text-white" />
           </div>
           <span className="font-bold text-lg bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
             Gestor de Loterias
@@ -100,7 +100,7 @@ export function AppHeader() {
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
                 <div className="p-2 bg-gradient-to-br from-blue-500 to-green-500 rounded-lg">
-                  <Calculator className="h-4 w-4 text-white" />
+                  <Clover className="h-4 w-4 text-white" />
                 </div>
                 <span className="bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
                   Gestor de Loterias
