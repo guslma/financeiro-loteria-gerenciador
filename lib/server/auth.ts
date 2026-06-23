@@ -1,3 +1,4 @@
+import "server-only"
 import bcrypt from "bcryptjs"
 import { SignJWT, jwtVerify } from "jose"
 

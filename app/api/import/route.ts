@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/server/prisma"
 import { resolveCategoryId } from "@/lib/categories"
-import { parseTransactionsFromWorkbook } from "@/lib/import-spreadsheet"
+import { parseTransactionsFromWorkbook } from "@/lib/server/import-spreadsheet"
 
 export async function POST(request: NextRequest) {
   const dryRun = request.nextUrl.searchParams.get("dryRun") === "true"

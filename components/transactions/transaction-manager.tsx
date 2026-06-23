@@ -30,9 +30,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Plus, Edit, Trash2, Camera } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { CurrencyInput, parseCurrencyValue } from "@/components/currency-input"
-import { CategoryManager } from "@/components/category-manager"
-import { ReceiptCapture } from "@/components/receipt-capture"
+import { CurrencyInput, parseCurrencyValue } from "@/components/transactions/currency-input"
+import { CategoryManager } from "@/components/transactions/category-manager"
+import { ReceiptCapture } from "@/components/transactions/receipt-capture"
 import {
   fetchTransactions,
   createTransaction,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { prisma } from "@/lib/prisma"
-import { SESSION_COOKIE, SESSION_MAX_AGE, createSessionToken, verifyPassword } from "@/lib/auth"
+import { prisma } from "@/lib/server/prisma"
+import { SESSION_COOKIE, SESSION_MAX_AGE, createSessionToken, verifyPassword } from "@/lib/server/auth"
 
 const loginSchema = z.object({
   username: z.string().trim().min(1),

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { prisma } from "@/lib/prisma"
+import { prisma } from "@/lib/server/prisma"
 import { resolveCategoryId } from "@/lib/categories"
 
 const updateTransactionSchema = z.object({
