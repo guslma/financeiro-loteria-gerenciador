@@ -33,7 +33,6 @@ export default function RootLayout({
 export const metadata = {
   title: "Gestor de Loterias",
   description: "Gestão financeira para lotéricas",
-  generator: "v0.app",
   manifest: "/manifest.json",
   icons: {
     icon: [
