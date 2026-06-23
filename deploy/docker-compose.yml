@@ -5,6 +5,10 @@ services:
       dockerfile: deploy/Dockerfile
     ports:
       - "3000:3000"
+    labels:
+      icon: "http://192.168.1.10:3000/icon-512x512.png"
+      org.opencontainers.image.title: "Gestor de Loterias"
+      org.opencontainers.image.description: "Gestão financeira para lotéricas"
     environment:
       DATABASE_URL: file:/data/app.db
       SESSION_SECRET: ${SESSION_SECRET}
