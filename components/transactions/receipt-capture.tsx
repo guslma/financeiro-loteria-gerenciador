@@ -30,6 +30,13 @@ export function ReceiptCapture({ onExtracted, onFileSelected, existingPhotoUrl }
       const { extractReceiptData } = await import("@/lib/receipt-ocr")
       const result = await extractReceiptData(file)
       onExtracted(result)
+
+      if (result.amountGuess === null && result.dateGuess === null && result.categoryGuess === null) {
+        toast({
+          title: "Aviso",
+          description: "Não conseguimos identificar os dados da foto automaticamente, preencha manualmente",
+        })
+      }
     } catch (error) {
       console.error("Erro ao ler comprovante:", error)
       toast({

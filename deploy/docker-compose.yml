@@ -1,3 +1,4 @@
+name: gestor-de-loterias
 services:
   app:
     build:
