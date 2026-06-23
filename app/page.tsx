@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, TrendingUp, TrendingDown } from "lucide-react"
-import { categoriesMatch } from "@/lib/categories"
 import { getYear, getMonthIndex } from "@/lib/dates"
 import { fetchTransactions } from "@/lib/api-client"
 import type { Transaction } from "@/lib/api-client"
@@ -21,9 +20,16 @@ import {
   Legend,
 } from "recharts"
 
+// Gera uma cor distinta por índice, sem precisar manter uma paleta fixa —
+// importante porque o número de categorias varia (cada lotérico tem as suas).
+function categoryColor(index: number, total: number) {
+  const hue = total > 0 ? Math.round((index * 360) / total) : 0
+  return `hsl(${hue}, 70%, 50%)`
+}
+
 export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [filterType, setFilterType] = useState("month") // "month", "year"
+  const [filterType, setFilterType] = useState("year") // "month", "year"
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
 
@@ -46,45 +52,39 @@ export default function Dashboard() {
       filteredTransactions = transactions.filter((t) => getYear(t.date) === selectedYear)
     }
 
-    const sumByCategory = (
-      monthTransactions: Transaction[],
-      type: Transaction["type"],
-      category: string,
-    ) =>
-      monthTransactions
-        .filter((t) => t.type === type && categoriesMatch(t.category, category))
-        .reduce((sum, t) => sum + t.amount, 0)
+    // Categorias usadas dinamicamente, em vez de uma lista fixa no código —
+    // cada lotérico tem suas próprias categorias de receita/despesa.
+    const receitaCategories = [...new Set(filteredTransactions.filter((t) => t.type === "receita").map((t) => t.category))]
+    const despesaCategories = [...new Set(filteredTransactions.filter((t) => t.type === "despesa").map((t) => t.category))]
 
     // Processar dados mensais para gráficos
     const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
     const monthlyData = months.map((month, index) => {
       const monthTransactions = filteredTransactions.filter((t) => getMonthIndex(t.date) === index)
 
-      const comissaoContas = sumByCategory(monthTransactions, "receita", "Comissão Contas")
-      const comissaoBolao = sumByCategory(monthTransactions, "receita", "Comissão Bolão")
-      const comissaoJogos = sumByCategory(monthTransactions, "receita", "Comissão Jogos")
-      const salarios = sumByCategory(monthTransactions, "despesa", "Salários")
-      const contasFixas = sumByCategory(monthTransactions, "despesa", "Contas Fixas")
-      const suprimentos = sumByCategory(monthTransactions, "despesa", "Suprimentos")
-      const manutencao = sumByCategory(monthTransactions, "despesa", "Manutenção")
+      const data: Record<string, string | number> = { month }
+      let totalReceitas = 0
+      let totalDespesas = 0
 
-      const totalReceitas = comissaoContas + comissaoBolao + comissaoJogos
-      const totalDespesas = salarios + contasFixas + suprimentos + manutencao
+      for (const category of receitaCategories) {
+        const sum = monthTransactions
+          .filter((t) => t.type === "receita" && t.category === category)
+          .reduce((s, t) => s + t.amount, 0)
+        data[category] = sum
+        totalReceitas += sum
+      }
+
+      for (const category of despesaCategories) {
+        const sum = monthTransactions
+          .filter((t) => t.type === "despesa" && t.category === category)
+          .reduce((s, t) => s + t.amount, 0)
+        data[category] = sum
+        totalDespesas += sum
+      }
+
       const fluxoCaixa = totalReceitas - totalDespesas
 
-      return {
-        month,
-        comissaoContas,
-        comissaoBolao,
-        comissaoJogos,
-        salarios,
-        contasFixas,
-        suprimentos,
-        manutencao,
-        totalReceitas,
-        totalDespesas,
-        fluxoCaixa,
-      }
+      return { ...data, totalReceitas, totalDespesas, fluxoCaixa }
     })
 
     // Calcular fluxo acumulado
@@ -95,10 +95,12 @@ export default function Dashboard() {
         return { ...data, fluxoAcumulado: acumulado }
       }),
       filteredTransactions,
+      receitaCategories,
+      despesaCategories,
     }
   }
 
-  const { monthlyData, filteredTransactions } = processFilteredData()
+  const { monthlyData, filteredTransactions, receitaCategories, despesaCategories } = processFilteredData()
 
   const availableYears = [...new Set([new Date().getFullYear(), ...transactions.map((t) => getYear(t.date))])].sort(
     (a, b) => b - a,
@@ -293,9 +295,14 @@ export default function Dashboard() {
                   formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                 />
                 <Legend />
-                <Bar dataKey="comissaoContas" fill="#22c55e" name="Comissão Contas" />
-                <Bar dataKey="comissaoBolao" fill="#3b82f6" name="Comissão Bolão" />
-                <Bar dataKey="comissaoJogos" fill="#f59e0b" name="Comissão Jogos" />
+                {receitaCategories.map((category, index) => (
+                  <Bar
+                    key={category}
+                    dataKey={category}
+                    fill={categoryColor(index, receitaCategories.length)}
+                    name={category}
+                  />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -336,10 +343,14 @@ export default function Dashboard() {
                   formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                 />
                 <Legend />
-                <Bar dataKey="salarios" fill="#ef4444" name="Salários" />
-                <Bar dataKey="contasFixas" fill="#f97316" name="Contas Fixas" />
-                <Bar dataKey="suprimentos" fill="#eab308" name="Suprimentos" />
-                <Bar dataKey="manutencao" fill="#84cc16" name="Manutenção" />
+                {despesaCategories.map((category, index) => (
+                  <Bar
+                    key={category}
+                    dataKey={category}
+                    fill={categoryColor(index, despesaCategories.length)}
+                    name={category}
+                  />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
