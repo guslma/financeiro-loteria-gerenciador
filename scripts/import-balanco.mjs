@@ -19,6 +19,15 @@ const SECTION_HEADERS = {
 }
 const STOP_LABEL = "fluxo de caixa"
 
+// Correções manuais para linhas sem rótulo cujo significado foi confirmado
+// posteriormente com o usuário (não dá para inferir isso só pela planilha).
+// Balanço 2024: duas linhas sem nome dentro do bloco de Impostos em
+// dezembro eram na verdade 13º salário e férias, não imposto.
+const MANUAL_OVERRIDES = [
+  { year: 2024, month: 12, amount: 4585.31, category: "DÉCIMO TERCEIRO" },
+  { year: 2024, month: 12, amount: 5530, category: "Férias" },
+]
+
 function normalize(label) {
   return label.trim().toLowerCase()
 }
@@ -66,9 +75,14 @@ function extractLeafEntries(filePath) {
       const amount = typeof value === "number" ? value : Number.parseFloat(value)
       if (!amount || Number.isNaN(amount)) continue
 
+      const override = MANUAL_OVERRIDES.find(
+        (o) => o.year === year && o.month === month + 1 && o.amount === amount,
+      )
+      const category = override?.category ?? effectiveLabel
+
       const date = `${year}-${String(month + 1).padStart(2, "0")}-01`
-      const description = `${effectiveLabel} - ${MONTHS[month]}/${year}`
-      entries.push({ date, description, amount, type, category: effectiveLabel })
+      const description = `${category} - ${MONTHS[month]}/${year}`
+      entries.push({ date, description, amount, type, category })
     }
   }
 
