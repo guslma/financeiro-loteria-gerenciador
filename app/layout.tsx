@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { AppHeader } from "@/components/layout/app-header"
 import { Toaster } from "@/components/ui/toaster"
+import { DevServiceWorkerCleanup } from "@/components/dev-sw-cleanup"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
+        <DevServiceWorkerCleanup />
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-green-50 relative">
           {/* Overlay sutil */}
           <div className="fixed inset-0 bg-gradient-to-br from-white/80 via-transparent to-white/60 pointer-events-none" />
