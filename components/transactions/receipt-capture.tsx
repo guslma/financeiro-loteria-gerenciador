@@ -6,9 +6,10 @@ import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
 interface ReceiptCaptureProps {
-  onExtracted: (data: { amountGuess: number | null; dateGuess: string | null }) => void
+  onExtracted: (data: { amountGuess: number | null; dateGuess: string | null; categoryGuess: string | null }) => void
   onFileSelected: (file: File) => void
   existingPhotoUrl?: string | null
 }
@@ -31,6 +32,11 @@ export function ReceiptCapture({ onExtracted, onFileSelected, existingPhotoUrl }
       onExtracted(result)
     } catch (error) {
       console.error("Erro ao ler comprovante:", error)
+      toast({
+        title: "Aviso",
+        description: "Não foi possível ler a foto automaticamente, preencha os dados manualmente",
+        variant: "destructive",
+      })
     } finally {
       setIsProcessing(false)
     }

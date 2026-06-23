@@ -43,6 +43,7 @@ import {
 } from "@/lib/api-client"
 import type { Transaction } from "@/lib/api-client"
 import { formatDatePtBR } from "@/lib/dates"
+import { categoriesMatch } from "@/lib/categories"
 
 interface TransactionManagerProps {
   type: "receita" | "despesa"
@@ -172,9 +173,11 @@ export function TransactionManager({ type }: TransactionManagerProps) {
   const handleReceiptExtracted = ({
     amountGuess,
     dateGuess,
+    categoryGuess,
   }: {
     amountGuess: number | null
     dateGuess: string | null
+    categoryGuess: string | null
   }) => {
     setFormData((prev) => ({
       ...prev,
@@ -183,7 +186,22 @@ export function TransactionManager({ type }: TransactionManagerProps) {
           ? amountGuess.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
           : prev.amount,
       date: dateGuess ?? prev.date,
+      category: categoryGuess ? resolveCategoryForGuess(categoryGuess) : prev.category,
     }))
+
+    if (categoryGuess) {
+      const existing = allCategories.find((cat) => categoriesMatch(cat, categoryGuess))
+      setShowCustomCategory(!existing)
+      setCustomCategory(existing ? "" : categoryGuess)
+    }
+  }
+
+  // Se a categoria sugerida pelo OCR já existe (ignorando maiúsculas/minúsculas),
+  // seleciona ela; senão seleciona "Nova" e deixa o nome sugerido pré-preenchido
+  // para o usuário confirmar — nunca cria a categoria sem revisão.
+  const resolveCategoryForGuess = (categoryGuess: string) => {
+    const existing = allCategories.find((cat) => categoriesMatch(cat, categoryGuess))
+    return existing ?? "Nova"
   }
 
   const handleEdit = (transaction: Transaction) => {
