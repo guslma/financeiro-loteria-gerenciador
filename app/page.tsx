@@ -27,6 +27,13 @@ function categoryColor(index: number, total: number) {
   return `hsl(${hue}, 70%, 50%)`
 }
 
+// Lotéricas reais costumam ter muito mais categorias de despesa do que de
+// receita, com escalas bem diferentes (Folha Salarial vs. Água, por
+// exemplo) — mostrar todas como barras lado a lado vira poluição visual.
+// Mantemos só as maiores e agrupamos o resto em "Outras Despesas".
+const DESPESA_CHART_LIMIT = 5
+const OUTRAS_DESPESAS_LABEL = "Outras Despesas"
+
 export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [filterType, setFilterType] = useState("year") // "month", "year"
@@ -57,6 +64,24 @@ export default function Dashboard() {
     const receitaCategories = [...new Set(filteredTransactions.filter((t) => t.type === "receita").map((t) => t.category))]
     const despesaCategories = [...new Set(filteredTransactions.filter((t) => t.type === "despesa").map((t) => t.category))]
 
+    // Categorias de despesa que ganham barra própria no gráfico: as maiores
+    // pelo total do período filtrado, com o restante agrupado em "Outras".
+    const despesaTotals = new Map<string, number>()
+    for (const t of filteredTransactions) {
+      if (t.type !== "despesa") continue
+      despesaTotals.set(t.category, (despesaTotals.get(t.category) ?? 0) + t.amount)
+    }
+    const topDespesaCategories = [...despesaTotals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, DESPESA_CHART_LIMIT)
+      .map(([category]) => category)
+    const hasOutrasDespesas = despesaCategories.length > topDespesaCategories.length
+    const despesaChartCategories = hasOutrasDespesas
+      ? [...topDespesaCategories, OUTRAS_DESPESAS_LABEL]
+      : topDespesaCategories
+    const despesaChartKey = (category: string) =>
+      topDespesaCategories.includes(category) ? category : OUTRAS_DESPESAS_LABEL
+
     // Processar dados mensais para gráficos
     const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
     const monthlyData = months.map((month, index) => {
@@ -78,7 +103,8 @@ export default function Dashboard() {
         const sum = monthTransactions
           .filter((t) => t.type === "despesa" && t.category === category)
           .reduce((s, t) => s + t.amount, 0)
-        data[category] = sum
+        const key = despesaChartKey(category)
+        data[key] = ((data[key] as number) ?? 0) + sum
         totalDespesas += sum
       }
 
@@ -96,11 +122,11 @@ export default function Dashboard() {
       }),
       filteredTransactions,
       receitaCategories,
-      despesaCategories,
+      despesaChartCategories,
     }
   }
 
-  const { monthlyData, filteredTransactions, receitaCategories, despesaCategories } = processFilteredData()
+  const { monthlyData, filteredTransactions, receitaCategories, despesaChartCategories } = processFilteredData()
 
   const availableYears = [...new Set([new Date().getFullYear(), ...transactions.map((t) => getYear(t.date))])].sort(
     (a, b) => b - a,
@@ -343,11 +369,11 @@ export default function Dashboard() {
                   formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                 />
                 <Legend />
-                {despesaCategories.map((category, index) => (
+                {despesaChartCategories.map((category, index) => (
                   <Bar
                     key={category}
                     dataKey={category}
-                    fill={categoryColor(index, despesaCategories.length)}
+                    fill={categoryColor(index, despesaChartCategories.length)}
                     name={category}
                   />
                 ))}
