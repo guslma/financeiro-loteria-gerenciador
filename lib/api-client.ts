@@ -69,6 +69,23 @@ export function uploadReceipt(file: File): Promise<{ path: string }> {
   return uploadFile("/api/receipts", file)
 }
 
+export interface ImportPreview {
+  year: number
+  total: number
+  receitas: number
+  despesas: number
+  categories: string[]
+  preview: { date: string; type: "receita" | "despesa"; category: string; description: string; amount: number }[]
+}
+
+export function previewImport(file: File): Promise<ImportPreview> {
+  return uploadFile("/api/import?dryRun=true", file)
+}
+
+export function confirmImport(file: File): Promise<{ imported: number; duplicates: number }> {
+  return uploadFile("/api/import", file)
+}
+
 export function deleteTransaction(id: string): Promise<{ ok: true }> {
   return request(`/api/transactions/${id}`, { method: "DELETE" })
 }

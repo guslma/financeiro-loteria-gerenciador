@@ -1,26 +1,35 @@
 # Gestor de Loterias
 
-Gestão financeira para lotéricas: controle de receitas, despesas, categorias e relatórios.
+Gestão financeira para lotéricas: controle de receitas, despesas, categorias, relatórios, importação de planilhas e leitura de comprovantes por foto.
 
-## Stack
+App local, sem login — pensado para rodar no seu próprio servidor (NAS, ZimaOS, Raspberry Pi, etc.), acessado pela sua rede ou por uma VPN como Tailscale.
 
-Next.js 15 (App Router) + React 19 + TypeScript + Tailwind + Prisma/SQLite. Veja [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## Rodando com Docker (recomendado)
+
+```bash
+docker compose up -d
+```
+
+Acesse em `http://localhost:3000`. Os dados (banco SQLite e fotos de comprovante) ficam em volumes Docker nomeados, sobrevivem a `docker compose down` (sem `-v`) e a atualizações de imagem.
+
+Também publicado no Docker Hub como [`seugu/gestor-de-loterias`](https://hub.docker.com/r/seugu/gestor-de-loterias) — veja [deploy/README.md](deploy/README.md) para instalação em servidores ZimaOS/CasaOS.
 
 ## Desenvolvimento
 
 ```bash
 npm install
-cp .env.example .env   # ajuste SESSION_SECRET, SEED_USERNAME, SEED_PASSWORD
 npx prisma migrate dev
-npm run db:seed         # cria o usuário inicial definido no .env
 npm run dev
 ```
+
+## Stack
+
+Next.js 15 (App Router) + React 19 + TypeScript + Tailwind + Prisma/SQLite. Veja [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Estrutura
 
 - `app/` — páginas e rotas de API (Next.js App Router)
 - `components/`, `hooks/`, `lib/` — UI e utilitários compartilhados
 - `prisma/` — schema e migrations do banco
-- `scripts/` — scripts operacionais (ex.: seed de usuário)
 - `docs/` — notas de arquitetura
-- `deploy/` — arquivos de deploy self-hosted (Fase 7, ainda não implementada)
+- `deploy/` — compose oficial para instalação via imagem do Docker Hub (ZimaOS/CasaOS)

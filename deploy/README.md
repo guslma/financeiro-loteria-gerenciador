@@ -1,15 +1,47 @@
-# Deploy
+# Deploy oficial (ZimaOS / CasaOS)
 
-Roda o app em um servidor doméstico (ex.: ZimaOS) via Docker.
+Este `docker-compose.yml` usa a imagem já publicada em
+[`seugu/gestor-de-loterias`](https://hub.docker.com/r/seugu/gestor-de-loterias)
+(amd64 e arm64) em vez de buildar localmente — é o formato que o CasaOS/ZimaOS
+espera para instalar como app oficial (ícone, nome e descrição na interface).
+
+## Instalar no ZimaOS
+
+Via interface: App Store → "Instalar app personalizado" → cole o conteúdo de
+`deploy/docker-compose.yml`.
+
+Via terminal (SSH no servidor):
+
+```bash
+casaos-cli app-management install -f deploy/docker-compose.yml
+```
+
+## Instalar em qualquer Docker (sem CasaOS)
 
 ```bash
 cd deploy
-cp .env.example .env   # ajuste SESSION_SECRET, SEED_USERNAME, SEED_PASSWORD
-docker compose up --build -d
+docker compose up -d
 ```
 
 Acesse em `http://<ip-do-servidor>:3000`.
 
-Os dados (banco SQLite e fotos de comprovante) ficam em volumes Docker nomeados (`db` e `uploads`) — sobrevivem a `docker compose down` (sem `-v`) e a rebuilds da imagem. Apagar esses volumes apaga os dados permanentemente.
+## Dados
 
-Acesso de fora de casa (internet) e HTTPS (necessário para o PWA ser instalável fora da rede local) ficam por sua conta — port-forward, Cloudflare Tunnel, Tailscale ou similar. O container só escuta em `0.0.0.0:3000`, sem TLS próprio.
+Banco SQLite e fotos de comprovante ficam em volumes Docker nomeados (`db` e
+`uploads`) — sobrevivem a `docker compose down` (sem `-v`) e a atualizações de
+imagem. Apagar esses volumes apaga os dados permanentemente.
+
+## Acesso remoto (fora da rede local)
+
+O container só escuta em `0.0.0.0:3000`, sem TLS próprio e sem login — não
+exponha a porta diretamente para a internet. Para acesso remoto seguro, use
+uma VPN como [Tailscale](https://tailscale.com) (ex.: `tailscale serve 3000`
+no host, que dá HTTPS automático dentro da sua rede privada) ou um reverse
+proxy com TLS (Nginx/Caddy + Let's Encrypt) se preferir um domínio público.
+
+## Atualizando para uma nova versão da imagem
+
+```bash
+docker compose pull
+docker compose up -d
+```

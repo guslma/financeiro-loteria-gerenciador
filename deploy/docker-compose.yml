@@ -1,25 +1,41 @@
 name: gestor-de-loterias
 services:
-  app:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+  gestor-de-loterias:
+    container_name: gestor-de-loterias
+    image: seugu/gestor-de-loterias:latest
+    network_mode: bridge
     ports:
-      - "3000:3000"
-    labels:
-      icon: "http://192.168.1.10:3000/icon-512x512.png"
-      org.opencontainers.image.title: "Gestor de Loterias"
-      org.opencontainers.image.description: "Gestão financeira para lotéricas"
+      - target: 3000
+        published: "3000"
+        protocol: tcp
     environment:
       DATABASE_URL: file:/data/app.db
-      SESSION_SECRET: ${SESSION_SECRET}
-      SEED_USERNAME: ${SEED_USERNAME:-}
-      SEED_PASSWORD: ${SEED_PASSWORD:-}
     volumes:
-      - db:/data
-      - uploads:/app/public/uploads
+      - type: volume
+        source: db
+        target: /data
+      - type: volume
+        source: uploads
+        target: /app/public/uploads
     restart: unless-stopped
-
+    labels:
+      icon: "http://localhost:3000/icon-512x512.png"
 volumes:
   db:
   uploads:
+networks:
+  default:
+    name: gestor-de-loterias_default
+x-casaos:
+  author: self
+  category: self
+  hostname: ""
+  icon: "http://localhost:3000/icon-512x512.png"
+  index: /
+  is_uncontrolled: false
+  port_map: "3000"
+  scheme: http
+  store_app_id: gestor-de-loterias
+  title:
+    custom: ""
+    en_us: Gestor de Loterias

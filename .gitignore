@@ -16,9 +16,14 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# macOS
+.DS_Store
+
+# Claude Code local settings
+.claude/
+
 # env files
 .env*
-!.env.example
 
 # vercel
 .vercel

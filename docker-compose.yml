@@ -1,0 +1,20 @@
+name: gestor-de-loterias
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    labels:
+      icon: "http://localhost:3000/icon-512x512.png"
+      org.opencontainers.image.title: "Gestor de Loterias"
+      org.opencontainers.image.description: "Gestão financeira para lotéricas"
+    environment:
+      DATABASE_URL: file:/data/app.db
+    volumes:
+      - db:/data
+      - uploads:/app/public/uploads
+    restart: unless-stopped
+
+volumes:
+  db:
+  uploads:
