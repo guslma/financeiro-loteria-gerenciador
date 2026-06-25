@@ -9,8 +9,11 @@ import type { Transaction } from "@/lib/api-client"
 import {
   Bar,
   BarChart,
+  Cell,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -32,6 +35,20 @@ function categoryColor(index: number, total: number) {
 // Mantemos só as maiores e agrupamos o resto em "Outras Despesas".
 const DESPESA_CHART_LIMIT = 5
 const OUTRAS_DESPESAS_LABEL = "Outras Despesas"
+
+// Mesma lógica de "top N + Outras" aplicada às pizzas de receita/despesa do
+// modo "Por Mês" — sem isso, lotéricas com muitas categorias acabam com uma
+// pizza ilegível de fatias minúsculas.
+const PIE_CHART_LIMIT = 5
+
+function pieDataFromTotals(totals: Map<string, number>, outrasLabel: string) {
+  const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1])
+  const top = sorted.slice(0, PIE_CHART_LIMIT)
+  const outrasTotal = sorted.slice(PIE_CHART_LIMIT).reduce((sum, [, value]) => sum + value, 0)
+  const data = top.map(([name, value]) => ({ name, value }))
+  if (outrasTotal > 0) data.push({ name: outrasLabel, value: outrasTotal })
+  return data
+}
 
 export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -65,10 +82,11 @@ export default function Dashboard() {
 
     // Categorias de despesa que ganham barra própria no gráfico: as maiores
     // pelo total do período filtrado, com o restante agrupado em "Outras".
+    const receitaTotals = new Map<string, number>()
     const despesaTotals = new Map<string, number>()
     for (const t of filteredTransactions) {
-      if (t.type !== "despesa") continue
-      despesaTotals.set(t.category, (despesaTotals.get(t.category) ?? 0) + t.amount)
+      const totals = t.type === "receita" ? receitaTotals : despesaTotals
+      totals.set(t.category, (totals.get(t.category) ?? 0) + t.amount)
     }
     const topDespesaCategories = [...despesaTotals.entries()]
       .sort((a, b) => b[1] - a[1])
@@ -122,10 +140,19 @@ export default function Dashboard() {
       filteredTransactions,
       receitaCategories,
       despesaChartCategories,
+      receitaPieData: pieDataFromTotals(receitaTotals, "Outras Receitas"),
+      despesaPieData: pieDataFromTotals(despesaTotals, OUTRAS_DESPESAS_LABEL),
     }
   }
 
-  const { monthlyData, filteredTransactions, receitaCategories, despesaChartCategories } = processFilteredData()
+  const {
+    monthlyData,
+    filteredTransactions,
+    receitaCategories,
+    despesaChartCategories,
+    receitaPieData,
+    despesaPieData,
+  } = processFilteredData()
 
   const availableYears = [...new Set([new Date().getFullYear(), ...transactions.map((t) => getYear(t.date))])].sort(
     (a, b) => b - a,
@@ -304,125 +331,181 @@ export default function Dashboard() {
       </div>
 
       {/* Gráficos */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {/* Evolução das Receitas */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Evolução das Receitas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip
-                  formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                />
-                <Legend />
-                {receitaCategories.map((category, index) => (
-                  <Bar
-                    key={category}
-                    dataKey={category}
-                    fill={categoryColor(index, receitaCategories.length)}
-                    name={category}
+      {filterType === "month" ? (
+        // Sem evolução mensal nem fluxo acumulado nesse modo — não fazem
+        // sentido pra um único mês. Pizzas mostram a composição por categoria.
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Receitas por Categoria</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {receitaPieData.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-12">Sem receitas no período</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={receitaPieData} dataKey="value" nameKey="name" outerRadius={100} label={(entry) => entry.name}>
+                      {receitaPieData.map((entry, index) => (
+                        <Cell key={entry.name} fill={categoryColor(index, receitaPieData.length)} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Despesas por Categoria</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {despesaPieData.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-12">Sem despesas no período</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={despesaPieData} dataKey="value" nameKey="name" outerRadius={100} label={(entry) => entry.name}>
+                      {despesaPieData.map((entry, index) => (
+                        <Cell key={entry.name} fill={categoryColor(index, despesaPieData.length)} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {/* Evolução das Receitas */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Evolução das Receitas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip
+                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                    />
+                    <Legend />
+                    {receitaCategories.map((category, index) => (
+                      <Bar
+                        key={category}
+                        dataKey={category}
+                        fill={categoryColor(index, receitaCategories.length)}
+                        name={category}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Fluxo de Caixa */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Fluxo de Caixa Mensal</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip
+                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                    />
+                    <Line type="monotone" dataKey="fluxoCaixa" stroke="#8884d8" strokeWidth={2} name="Fluxo de Caixa" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Evolução das Despesas */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Evolução das Despesas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip
+                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                    />
+                    <Legend />
+                    {despesaChartCategories.map((category, index) => (
+                      <Bar
+                        key={category}
+                        dataKey={category}
+                        fill={categoryColor(index, despesaChartCategories.length)}
+                        name={category}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Fluxo de Caixa Acumulado */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Fluxo de Caixa Acumulado</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip
+                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                    />
+                    <Line type="monotone" dataKey="fluxoAcumulado" stroke="#06b6d4" strokeWidth={3} name="Acumulado" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Comparativo Receitas vs Despesas */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Comparativo Anual - Receitas vs Despesas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                   />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Fluxo de Caixa */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Fluxo de Caixa Mensal</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip
-                  formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                />
-                <Line type="monotone" dataKey="fluxoCaixa" stroke="#8884d8" strokeWidth={2} name="Fluxo de Caixa" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Evolução das Despesas */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Evolução das Despesas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip
-                  formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                />
-                <Legend />
-                {despesaChartCategories.map((category, index) => (
-                  <Bar
-                    key={category}
-                    dataKey={category}
-                    fill={categoryColor(index, despesaChartCategories.length)}
-                    name={category}
-                  />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Fluxo de Caixa Acumulado */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Fluxo de Caixa Acumulado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip
-                  formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                />
-                <Line type="monotone" dataKey="fluxoAcumulado" stroke="#06b6d4" strokeWidth={3} name="Acumulado" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Comparativo Receitas vs Despesas */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Comparativo Anual - Receitas vs Despesas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip
-                formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-              />
-              <Legend />
-              <Bar dataKey="totalReceitas" fill="#22c55e" name="Total Receitas" />
-              <Bar dataKey="totalDespesas" fill="#ef4444" name="Total Despesas" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+                  <Legend />
+                  <Bar dataKey="totalReceitas" fill="#22c55e" name="Total Receitas" />
+                  <Bar dataKey="totalDespesas" fill="#ef4444" name="Total Despesas" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 }
