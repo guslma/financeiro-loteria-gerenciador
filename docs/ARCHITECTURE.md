@@ -19,9 +19,6 @@ Monorepo com frontend e backend separados, comunicando via HTTP/JSON.
 - **Import de planilhas**: parser de balanço anual em
   `backend/src/lib/import-balanco.ts`, exposto via `POST /api/import`
   (`?dryRun=true` para pré-visualizar antes de gravar).
-- **Migração de dados legados**: `scripts/migrate-sqlite.ts` (rodado do host,
-  fora do container) migra uma instalação antiga em SQLite para o Postgres
-  atual, preservando IDs e validando contagens/somas no final.
 - **Deploy**:
   - `Dockerfile` + `docker-compose.yml` na raiz — 2 containers (app +
     postgres). Por padrão usa a imagem publicada no Docker Hub

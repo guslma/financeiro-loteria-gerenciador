@@ -45,7 +45,6 @@ React + TypeScript + Vite + Tailwind (frontend) · Express + TypeScript (backend
 - `frontend/` — SPA (Vite + React + Tailwind), PWA
 - `backend/` — API Express, migrations SQL aplicadas no boot
 - `database/migrations/` — schema do Postgres (SQL puro)
-- `scripts/` — ferramentas avulsas (ex.: migração de dados de uma instalação SQLite antiga)
 - `assets/` — arquivos-fonte de design (ícones)
 - `docs/` — notas de arquitetura
 - `deploy/` — compose oficial para instalação via imagem do Docker Hub (ZimaOS/CasaOS)
