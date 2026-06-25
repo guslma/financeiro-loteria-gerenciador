@@ -40,9 +40,13 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
+    watch: {
+      usePolling: true,
+    },
     proxy: {
-      "/api": "http://localhost:3000",
-      "/uploads": "http://localhost:3000",
+      "/api": process.env.VITE_BACKEND_URL ?? "http://localhost:3000",
+      "/uploads": process.env.VITE_BACKEND_URL ?? "http://localhost:3000",
     },
   },
 })

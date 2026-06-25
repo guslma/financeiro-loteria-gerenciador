@@ -1,0 +1,55 @@
+name: gestor-de-loterias-dev
+services:
+  backend:
+    build:
+      context: backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://gestor:gestor@postgres:5432/gestor
+      UPLOADS_DIR: /app/backend/uploads
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ./backend:/app/backend
+      - /app/backend/node_modules
+      - ./database:/app/database
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_BACKEND_URL: http://backend:3000
+    volumes:
+      - ./frontend:/app/frontend
+      - /app/frontend/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: gestor
+      POSTGRES_PASSWORD: gestor
+      POSTGRES_DB: gestor
+    volumes:
+      - db-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gestor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  db-dev:

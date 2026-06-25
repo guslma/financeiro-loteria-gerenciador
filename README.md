@@ -18,14 +18,23 @@ Também publicado no Docker Hub como [`guslma/gestor-de-loterias`](https://hub.d
 ## Desenvolvimento
 
 ```bash
-# backend
-cd backend && npm install && npm run dev
-
-# frontend (outro terminal)
-cd frontend && npm install && npm run dev
+docker compose -f docker-compose.dev.yml up -d
 ```
 
-O backend aplica as migrations do Postgres automaticamente no boot.
+- Frontend: http://localhost:5173
+- Backend (API): http://localhost:3000/api
+- Banco de dados: `localhost:5434` (`gestor` / `gestor` / `gestor`)
+
+Os containers de `frontend` e `backend` ficam com hot-reload ativado via
+volume (Vite e `tsx watch`, ambos com polling habilitado para detectar
+mudanças no bind mount). O backend aplica as migrations do Postgres
+automaticamente no boot.
+
+Depois de mudar dependências (`package.json`), rebuilde as imagens:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d --build
+```
 
 ## Stack
 
