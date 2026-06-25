@@ -6,7 +6,7 @@ services:
     ports:
       - "3000:3000"
     labels:
-      icon: "http://localhost:3000/icon-512x512.png"
+      icon: "https://cdn.jsdelivr.net/gh/guslma/financeiro-loteria-gerenciador@v1.0.0/frontend/public/icon-512x512.png"
       org.opencontainers.image.title: "Gestor de Loterias"
       org.opencontainers.image.description: "Gestão financeira para lotéricas"
     environment:

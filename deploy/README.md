@@ -53,13 +53,15 @@ dados permanentemente.
 
 ## Ícone no painel do CasaOS
 
-O label `icon:` hoje aponta para `http://localhost:3000/...`, que só resolve
-para quem está navegando a partir do próprio ZimaOS — em outro dispositivo da
-rede o ícone não aparece. Isso é uma pendência conhecida: a correção definitiva
-é hospedar os ícones num repositório GitHub público e apontar para uma URL
-jsdelivr fixada por tag (ex.:
-`https://cdn.jsdelivr.net/gh/<usuario>/<repo>@v1.0.0/frontend/public/icon-512x512.png`),
-ainda não configurada.
+O label `icon:` aponta para o ícone hospedado via jsDelivr direto do
+repositório público, fixado na tag `v1.0.0`:
+`https://cdn.jsdelivr.net/gh/guslma/financeiro-loteria-gerenciador@v1.0.0/frontend/public/icon-512x512.png`.
+Resolve de qualquer dispositivo da rede, não só do próprio ZimaOS.
+
+Ao lançar uma nova versão com ícone diferente, crie uma tag nova (`git tag
+vX.Y.Z && git push origin vX.Y.Z`) e atualize a versão na URL — tags antigas
+continuam servindo o ícone antigo, então o link não quebra para quem ainda não
+atualizou.
 
 ## Acesso remoto (fora da rede local)
 
