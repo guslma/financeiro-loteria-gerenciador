@@ -7,29 +7,36 @@ App local, sem login — pensado para rodar no seu próprio servidor (NAS, ZimaO
 ## Rodando com Docker (recomendado)
 
 ```bash
+cp .env.example .env
 docker compose up -d
 ```
 
-Acesse em `http://localhost:3000`. Os dados (banco SQLite e fotos de comprovante) ficam em volumes Docker nomeados, sobrevivem a `docker compose down` (sem `-v`) e a atualizações de imagem.
+Acesse em `http://localhost:3000`. Os dados (Postgres e fotos de comprovante) ficam em volumes Docker nomeados, sobrevivem a `docker compose down` (sem `-v`) e a atualizações de imagem.
 
-Também publicado no Docker Hub como [`seugu/gestor-de-loterias`](https://hub.docker.com/r/seugu/gestor-de-loterias) — veja [deploy/README.md](deploy/README.md) para instalação em servidores ZimaOS/CasaOS.
+Também publicado no Docker Hub como [`guslma/gestor-de-loterias`](https://hub.docker.com/r/guslma/gestor-de-loterias) — veja [docker-compose.prod.yml](docker-compose.prod.yml) para produção genérica ou [deploy/README.md](deploy/README.md) para instalação em servidores ZimaOS/CasaOS.
 
 ## Desenvolvimento
 
 ```bash
-npm install
-npx prisma migrate dev
-npm run dev
+# backend
+cd backend && npm install && npm run dev
+
+# frontend (outro terminal)
+cd frontend && npm install && npm run dev
 ```
+
+O backend aplica as migrations do Postgres automaticamente no boot.
 
 ## Stack
 
-Next.js 15 (App Router) + React 19 + TypeScript + Tailwind + Prisma/SQLite. Veja [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+React + TypeScript + Vite + Tailwind (frontend) · Express + TypeScript (backend) · PostgreSQL via `pg`, sem ORM. Veja [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Estrutura
 
-- `app/` — páginas e rotas de API (Next.js App Router)
-- `components/`, `hooks/`, `lib/` — UI e utilitários compartilhados
-- `prisma/` — schema e migrations do banco
+- `frontend/` — SPA (Vite + React + Tailwind), PWA
+- `backend/` — API Express, migrations SQL aplicadas no boot
+- `database/migrations/` — schema do Postgres (SQL puro)
+- `scripts/` — ferramentas avulsas (ex.: migração de dados de uma instalação SQLite antiga)
+- `assets/` — arquivos-fonte de design (ícones)
 - `docs/` — notas de arquitetura
 - `deploy/` — compose oficial para instalação via imagem do Docker Hub (ZimaOS/CasaOS)

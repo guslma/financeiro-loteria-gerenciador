@@ -1,9 +1,27 @@
 # Deploy oficial (ZimaOS / CasaOS)
 
 Este `docker-compose.yml` usa a imagem já publicada em
-[`seugu/gestor-de-loterias`](https://hub.docker.com/r/seugu/gestor-de-loterias)
+[`guslma/gestor-de-loterias`](https://hub.docker.com/r/guslma/gestor-de-loterias)
 (amd64 e arm64) em vez de buildar localmente — é o formato que o CasaOS/ZimaOS
 espera para instalar como app oficial (ícone, nome e descrição na interface).
+
+## Antes do primeiro `docker compose up -d` (importante)
+
+Os dados ficam em bind mounts em `/DATA/AppData/gestor-de-loterias/`, seguindo
+o mesmo padrão de outros apps do ZimaOS (ex.: `ownfoil`). Crie as pastas e
+ajuste a permissão da pasta do Postgres **antes** de subir a stack pela
+primeira vez:
+
+```bash
+mkdir -p /DATA/AppData/gestor-de-loterias/postgres
+mkdir -p /DATA/AppData/gestor-de-loterias/uploads
+chown -R 70:70 /DATA/AppData/gestor-de-loterias/postgres
+```
+
+O uid/gid 70 é o usuário `postgres` dentro da imagem `postgres:16-alpine`
+(confirmado com `docker run --rm postgres:16-alpine id postgres` — não é 999,
+como em imagens Debian-based). Sem esse `chown`, o container do Postgres entra
+em crash loop por falta de permissão na pasta de dados.
 
 ## Instalar no ZimaOS
 
@@ -27,9 +45,21 @@ Acesse em `http://<ip-do-servidor>:3000`.
 
 ## Dados
 
-Banco SQLite e fotos de comprovante ficam em volumes Docker nomeados (`db` e
-`uploads`) — sobrevivem a `docker compose down` (sem `-v`) e a atualizações de
-imagem. Apagar esses volumes apaga os dados permanentemente.
+Banco Postgres e fotos de comprovante ficam em bind mounts em
+`/DATA/AppData/gestor-de-loterias/{postgres,uploads}` — sobrevivem a
+`docker compose down` e a atualizações de imagem, e ficam visíveis/gerenciáveis
+direto pelo gerenciador de arquivos do ZimaOS. Apagar essas pastas apaga os
+dados permanentemente.
+
+## Ícone no painel do CasaOS
+
+O label `icon:` hoje aponta para `http://localhost:3000/...`, que só resolve
+para quem está navegando a partir do próprio ZimaOS — em outro dispositivo da
+rede o ícone não aparece. Isso é uma pendência conhecida: a correção definitiva
+é hospedar os ícones num repositório GitHub público e apontar para uma URL
+jsdelivr fixada por tag (ex.:
+`https://cdn.jsdelivr.net/gh/<usuario>/<repo>@v1.0.0/frontend/public/icon-512x512.png`),
+ainda não configurada.
 
 ## Acesso remoto (fora da rede local)
 

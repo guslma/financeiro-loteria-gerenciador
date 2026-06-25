@@ -1,32 +1,28 @@
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY package.json package-lock.json ./
+FROM node:22-alpine AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
-
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npx prisma generate
+COPY frontend/ ./
 RUN npm run build
 
-FROM node:20-alpine AS runner
-WORKDIR /app
+FROM node:22-alpine AS backend-builder
+WORKDIR /app/backend
+COPY backend/package.json backend/package-lock.json ./
+RUN npm ci
+COPY backend/ ./
+RUN npm run build
+
+FROM node:22-alpine AS runner
+WORKDIR /app/backend
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
+ENV UPLOADS_DIR=/app/uploads
 
-# Usa o node_modules completo (não o pruned do standalone) para que o
-# CLI do Prisma (migrate deploy) funcione em runtime, não só o servidor
-# Next em si.
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package.json ./package.json
-COPY entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
+COPY --from=backend-builder /app/backend/node_modules ./node_modules
+COPY --from=backend-builder /app/backend/dist ./dist
+COPY --from=backend-builder /app/backend/package.json ./package.json
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
+COPY database /app/database
 
 EXPOSE 3000
-ENTRYPOINT ["./entrypoint.sh"]
+CMD ["node", "dist/index.js"]

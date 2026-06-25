@@ -1,13 +1,9 @@
 name: gestor-de-loterias
 services:
   app:
-    build: .
+    image: guslma/gestor-de-loterias:latest
     ports:
       - "3000:3000"
-    labels:
-      icon: "http://localhost:3000/icon-512x512.png"
-      org.opencontainers.image.title: "Gestor de Loterias"
-      org.opencontainers.image.description: "Gestão financeira para lotéricas"
     environment:
       DATABASE_URL: postgresql://gestor:gestor@postgres:5432/gestor
     volumes:
@@ -19,8 +15,6 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    ports:
-      - "5434:5432"
     environment:
       POSTGRES_USER: gestor
       POSTGRES_PASSWORD: gestor

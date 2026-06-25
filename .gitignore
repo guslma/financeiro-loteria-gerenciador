@@ -1,14 +1,12 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
+# builds
+frontend/dist/
+backend/dist/
+*.tsbuildinfo
 
 # debug
 npm-debug.log*
@@ -23,29 +21,13 @@ yarn-error.log*
 .claude/
 
 # env files
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# prisma / sqlite
-/prisma/*.db
-/prisma/*.db-journal
+.env
+.env.*
+!.env.example
+!.env.production.example
 
 # uploaded receipt photos
-/public/uploads
+backend/uploads/
 
 # planilhas pessoais usadas para backfill único de dados reais
 /Tabela balanco/
-
-# pwa generated files
-/public/sw.js
-/public/sw.js.map
-/public/workbox-*.js
-/public/workbox-*.js.map
-/public/swe-worker-*.js
-/public/swe-worker-*.js.map
