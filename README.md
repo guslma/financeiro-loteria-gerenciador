@@ -48,3 +48,7 @@ React + TypeScript + Vite + Tailwind (frontend) · Express + TypeScript (backend
 - `assets/` — arquivos-fonte de design (ícones)
 - `docs/` — notas de arquitetura
 - `deploy/` — compose oficial para instalação via imagem do Docker Hub (ZimaOS/CasaOS)
+
+## Licença
+
+[MIT](LICENSE)
