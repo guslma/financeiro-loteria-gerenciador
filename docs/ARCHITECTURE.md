@@ -23,10 +23,12 @@ Monorepo com frontend e backend separados, comunicando via HTTP/JSON.
   fora do container) migra uma instalação antiga em SQLite para o Postgres
   atual, preservando IDs e validando contagens/somas no final.
 - **Deploy**:
-  - `Dockerfile` + `docker-compose.yml` na raiz — build local, 2 containers
-    (app + postgres).
-  - `docker-compose.prod.yml` — produção genérica, usa a imagem publicada no
-    Docker Hub em vez de buildar localmente.
+  - `Dockerfile` + `docker-compose.yml` na raiz — 2 containers (app +
+    postgres). Por padrão usa a imagem publicada no Docker Hub
+    (`guslma/gestor-de-loterias`); `docker compose up -d --build` builda
+    localmente a partir do `Dockerfile` em vez de baixar.
+  - `docker-compose.dev.yml` — ambiente de desenvolvimento com hot-reload
+    (containers separados de frontend e backend, volumes montados).
   - `deploy/` — formato específico para instalação oficial no ZimaOS/CasaOS
     (bind mounts em `/DATA/AppData/...`, metadados `x-casaos`). Ver
     `deploy/README.md`.

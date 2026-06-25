@@ -1,6 +1,7 @@
 name: gestor-de-loterias
 services:
   app:
+    image: guslma/gestor-de-loterias:latest
     build: .
     ports:
       - "3000:3000"

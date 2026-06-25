@@ -13,7 +13,7 @@ docker compose up -d
 
 Acesse em `http://localhost:3000`. Os dados (Postgres e fotos de comprovante) ficam em volumes Docker nomeados, sobrevivem a `docker compose down` (sem `-v`) e a atualizações de imagem.
 
-Também publicado no Docker Hub como [`guslma/gestor-de-loterias`](https://hub.docker.com/r/guslma/gestor-de-loterias) — veja [docker-compose.prod.yml](docker-compose.prod.yml) para produção genérica ou [deploy/README.md](deploy/README.md) para instalação em servidores ZimaOS/CasaOS.
+Por padrão isso baixa a imagem publicada no Docker Hub como [`guslma/gestor-de-loterias`](https://hub.docker.com/r/guslma/gestor-de-loterias). Pra buildar a partir do código local em vez de baixar do Hub, use `docker compose up -d --build`. Veja [deploy/README.md](deploy/README.md) para instalação em servidores ZimaOS/CasaOS.
 
 ## Desenvolvimento
 
