@@ -1,21 +1,20 @@
 name: gestor-de-loterias
+
 services:
   gestor-de-loterias:
     container_name: gestor-de-loterias
     image: guslma/gestor-de-loterias:latest
     ports:
-      - target: 3000
-        published: "3000"
-        protocol: tcp
+      - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://gestor:gestor@postgres:5432/gestor
+      DATABASE_URL: postgresql://gestor:SENHA_FORTE_AQUI@postgres:5432/gestor
     volumes:
-      - type: bind
-        source: /DATA/AppData/gestor-de-loterias/uploads
-        target: /app/uploads
+      - /DATA/AppData/gestor-de-loterias/uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - gestor-net
     restart: unless-stopped
     labels:
       icon: "https://cdn.jsdelivr.net/gh/guslma/financeiro-loteria-gerenciador@v1.0.0/frontend/public/icon-512x512.png"
@@ -25,21 +24,24 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: gestor
-      POSTGRES_PASSWORD: gestor
+      POSTGRES_PASSWORD: SENHA_FORTE_AQUI
       POSTGRES_DB: gestor
     volumes:
-      - type: bind
-        source: /DATA/AppData/gestor-de-loterias/postgres
-        target: /var/lib/postgresql/data
+      - /DATA/AppData/gestor-de-loterias/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gestor"]
+      test: ["CMD-SHELL", "pg_isready -U gestor -d gestor"]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
+    networks:
+      gestor-net:
+        aliases:
+          - postgres
     restart: unless-stopped
 
 networks:
-  default:
+  gestor-net:
     name: gestor-de-loterias_default
 
 x-casaos:
