@@ -223,7 +223,6 @@ export default function Relatorios() {
           }
           .year-section {
             margin-bottom: 40px;
-            page-break-inside: avoid;
           }
           .year-title {
             background: linear-gradient(135deg, #4f46e5, #06b6d4);
@@ -251,6 +250,7 @@ export default function Relatorios() {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 8px;
             overflow: hidden;
+            page-break-inside: avoid;
           }
           th {
             background: #4f46e5;
