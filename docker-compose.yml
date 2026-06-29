@@ -11,6 +11,9 @@ services:
       org.opencontainers.image.description: "Gestão financeira para lotéricas"
     environment:
       DATABASE_URL: postgresql://gestor:gestor@postgres:5432/gestor
+      APP_USERNAME: ${APP_USERNAME}
+      APP_PASSWORD: ${APP_PASSWORD}
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
     volumes:
       - uploads:/app/uploads
     depends_on:

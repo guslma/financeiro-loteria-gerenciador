@@ -31,3 +31,6 @@ backend/uploads/
 
 # planilhas pessoais usadas para backfill único de dados reais
 /Tabela balanco/
+
+# compose com segredos reais, só pra copiar pro servidor
+deploy/docker-compose.local.yml

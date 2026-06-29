@@ -8,3 +8,4 @@
 !.env.example
 !.env.production.example
 backend/uploads
+deploy/docker-compose.local.yml

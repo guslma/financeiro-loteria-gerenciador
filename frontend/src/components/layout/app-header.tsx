@@ -1,10 +1,11 @@
-import { Home, TrendingUp, TrendingDown, FileText, Clover, Menu } from "lucide-react"
+import { Home, TrendingUp, TrendingDown, FileText, Clover, Menu, LogOut } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/lib/auth-context"
 
 const items = [
   {
@@ -36,6 +37,7 @@ const items = [
 export function AppHeader() {
   const { pathname } = useLocation()
   const [isOpen, setIsOpen] = useState(false)
+  const { logout } = useAuth()
 
   return (
     <header className="sticky top-0 z-50 w-full header-glass">
@@ -68,6 +70,10 @@ export function AppHeader() {
               </Button>
             </Link>
           ))}
+          <Button variant="ghost" className="hover:bg-white/50" onClick={() => logout()}>
+            <LogOut className="h-4 w-4" />
+            Sair
+          </Button>
         </nav>
 
         {/* Menu Mobile */}
@@ -110,6 +116,16 @@ export function AppHeader() {
                   </div>
                 </Link>
               ))}
+              <button
+                onClick={() => {
+                  setIsOpen(false)
+                  logout()
+                }}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-white/50 hover:text-foreground transition-all duration-200"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="font-medium">Sair</span>
+              </button>
             </nav>
           </SheetContent>
         </Sheet>

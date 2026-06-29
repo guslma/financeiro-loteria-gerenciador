@@ -1,0 +1,37 @@
+import { Router } from "express"
+import { z } from "zod"
+import { checkCredentials, clearSessionCookie, createSessionToken, requireAuth, setSessionCookie } from "../lib/auth"
+
+const router = Router()
+
+const loginSchema = z.object({
+  username: z.string().trim().min(1),
+  password: z.string().min(1),
+})
+
+router.post("/login", (req, res) => {
+  const parsed = loginSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() })
+  }
+
+  const { username, password } = parsed.data
+  if (!checkCredentials(username, password)) {
+    return res.status(401).json({ error: "Usuário ou senha inválidos" })
+  }
+
+  const token = createSessionToken(username)
+  setSessionCookie(res, token)
+  res.json({ username })
+})
+
+router.post("/logout", (_req, res) => {
+  clearSessionCookie(res)
+  res.json({ ok: true })
+})
+
+router.get("/me", requireAuth, (req, res) => {
+  res.json({ username: req.auth!.username })
+})
+
+export default router

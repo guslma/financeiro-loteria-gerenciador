@@ -2,7 +2,7 @@
 
 Gestão financeira para lotéricas: controle de receitas, despesas, categorias, relatórios, importação de planilhas e leitura de comprovantes por foto.
 
-App local, sem login — pensado para rodar no seu próprio servidor (NAS, ZimaOS, Raspberry Pi, etc.), acessado pela sua rede ou por uma VPN como Tailscale.
+Pensado para rodar no seu próprio servidor (NAS, ZimaOS, Raspberry Pi, etc.), com login simples por usuário/senha — dá pra acessar pela rede local, por VPN (Tailscale) ou exposto direto na internet.
 
 ## Rodando com Docker (recomendado)
 

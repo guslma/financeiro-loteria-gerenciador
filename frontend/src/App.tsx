@@ -6,8 +6,20 @@ import Receitas from "@/pages/Receitas"
 import Despesas from "@/pages/Despesas"
 import Relatorios from "@/pages/Relatorios"
 import Importar from "@/pages/Importar"
+import Login from "@/pages/Login"
+import { useAuth } from "@/lib/auth-context"
 
 function App() {
+  const { isLoading, isAuthenticated } = useAuth()
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Carregando...</div>
+  }
+
+  if (!isAuthenticated) {
+    return <Login />
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-green-50 relative">
       <div className="fixed inset-0 bg-gradient-to-br from-white/80 via-transparent to-white/60 pointer-events-none" />

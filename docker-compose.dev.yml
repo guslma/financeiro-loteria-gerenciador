@@ -10,6 +10,9 @@ services:
       DATABASE_URL: postgresql://gestor:gestor@postgres:5432/gestor
       UPLOADS_DIR: /app/backend/uploads
       CHOKIDAR_USEPOLLING: "true"
+      APP_USERNAME: ${APP_USERNAME:-admin}
+      APP_PASSWORD: ${APP_PASSWORD:-admin}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-dev-secret-troque-em-producao}
     volumes:
       - ./backend:/app/backend
       - /app/backend/node_modules

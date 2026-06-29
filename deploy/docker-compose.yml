@@ -8,6 +8,9 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: postgresql://gestor:SENHA_FORTE_AQUI@postgres:5432/gestor
+      APP_USERNAME: admin
+      APP_PASSWORD: TROQUE_ESTA_SENHA
+      APP_JWT_SECRET: TROQUE_ESTA_CHAVE_SECRETA
     volumes:
       - /DATA/AppData/gestor-de-loterias/uploads:/app/uploads
     depends_on:

@@ -23,10 +23,22 @@ O uid/gid 70 é o usuário `postgres` dentro da imagem `postgres:16-alpine`
 como em imagens Debian-based). Sem esse `chown`, o container do Postgres entra
 em crash loop por falta de permissão na pasta de dados.
 
+## Login
+
+O app exige usuário/senha (`APP_USERNAME`/`APP_PASSWORD` no compose) e uma
+chave de sessão (`APP_JWT_SECRET`). Sem essas três variáveis definidas o
+container não sobe — ele falha rápido no boot em vez de subir sem proteção.
+Troque os valores de exemplo do `docker-compose.yml` antes de instalar.
+
+Se você já gerou um `deploy/docker-compose.local.yml` (cópia local com os
+segredos reais, fora do git/Docker Hub), use o conteúdo dele em vez do
+`docker-compose.yml` nos passos abaixo.
+
 ## Instalar no ZimaOS
 
 Via interface: App Store → "Instalar app personalizado" → cole o conteúdo de
-`deploy/docker-compose.yml`.
+`deploy/docker-compose.yml` (com `APP_USERNAME`/`APP_PASSWORD`/`APP_JWT_SECRET`
+já trocados pelos seus valores).
 
 Via terminal (SSH no servidor):
 
@@ -65,15 +77,31 @@ atualizou.
 
 ## Acesso remoto (fora da rede local)
 
-O container só escuta em `0.0.0.0:3000`, sem TLS próprio e sem login — não
-exponha a porta diretamente para a internet. Para acesso remoto seguro, use
-uma VPN como [Tailscale](https://tailscale.com) (ex.: `tailscale serve 3000`
-no host, que dá HTTPS automático dentro da sua rede privada) ou um reverse
-proxy com TLS (Nginx/Caddy + Let's Encrypt) se preferir um domínio público.
+O app tem login por usuário/senha, mas o container ainda escuta em
+`0.0.0.0:3000` sem TLS próprio — sem HTTPS, a senha viaja em texto claro pela
+rede até chegar no servidor. Pra expor na internet, coloque na frente um
+reverse proxy com TLS (Nginx/Caddy + Let's Encrypt) ou use uma VPN como
+[Tailscale](https://tailscale.com) (ex.: `tailscale serve 3000` no host, que
+dá HTTPS automático).
 
-## Atualizando para uma nova versão da imagem
+## Atualizando para uma nova versão da imagem (sem perder dados)
+
+Os dados (Postgres e uploads) ficam em bind mounts em `/DATA/AppData/...`,
+fora dos containers — atualizar a imagem não toca nesses arquivos. Só não
+apague essas pastas.
+
+1. Garanta que o compose instalado no ZimaOS já tem `APP_USERNAME`,
+   `APP_PASSWORD` e `APP_JWT_SECRET` definidos (apps instalados antes do login
+   existir não têm essas variáveis — adicione-as editando o app pela interface
+   do CasaOS, em "Configurações do app" → variáveis de ambiente, **antes** de
+   atualizar a imagem, senão o container entra em crash loop por faltar
+   variável).
+2. Atualize a imagem:
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
+
+Pela interface do CasaOS isso equivale ao botão "Atualizar" do app — ele
+recria o container preservando os bind mounts.

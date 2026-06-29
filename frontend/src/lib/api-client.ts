@@ -19,16 +19,36 @@ export interface Settings {
   storeName: string
 }
 
+// Disparado quando uma chamada à API recebe 401 — o AuthProvider escuta esse
+// evento pra derrubar a sessão e mostrar a tela de login, mesmo sem o
+// usuário ter interagido com nada nessa página.
+export const UNAUTHORIZED_EVENT = "auth:unauthorized"
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   })
+  if (response.status === 401) {
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     throw new Error(body?.error ? JSON.stringify(body.error) : `Erro ${response.status}`)
   }
   return response.json()
+}
+
+export function login(username: string, password: string): Promise<{ username: string }> {
+  return request("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) })
+}
+
+export function logout(): Promise<{ ok: true }> {
+  return request("/api/auth/logout", { method: "POST" })
+}
+
+export function fetchMe(): Promise<{ username: string }> {
+  return request("/api/auth/me")
 }
 
 export function fetchTransactions(type?: "receita" | "despesa"): Promise<Transaction[]> {
