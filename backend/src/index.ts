@@ -19,6 +19,7 @@ for (const name of ["APP_USERNAME", "APP_PASSWORD", "APP_JWT_SECRET"]) {
 }
 
 const app = express()
+app.set("trust proxy", 1)
 const PORT = process.env.PORT ?? 3000
 const FRONTEND_DIST = process.env.FRONTEND_DIST ?? path.join(__dirname, "..", "..", "frontend", "dist")
 

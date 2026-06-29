@@ -21,7 +21,7 @@ router.post("/login", (req, res) => {
   }
 
   const token = createSessionToken(username)
-  setSessionCookie(res, token)
+  setSessionCookie(req, res, token)
   res.json({ username })
 })
 

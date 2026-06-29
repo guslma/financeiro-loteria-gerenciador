@@ -33,11 +33,16 @@ export function createSessionToken(username: string): string {
   return jwt.sign({ sub: username }, getJwtSecret(), { expiresIn: SESSION_DURATION })
 }
 
-export function setSessionCookie(res: Response, token: string) {
+export function setSessionCookie(req: Request, res: Response, token: string) {
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Marca o cookie como Secure só quando a conexão realmente é HTTPS
+    // (direto ou via reverse proxy com X-Forwarded-Proto, com "trust proxy"
+    // configurado no index.ts). Setar Secure sempre quebraria o login em
+    // deploys sem TLS, como o ZimaOS expondo a porta 3000 em HTTP puro —
+    // o navegador descarta cookies Secure recebidos por HTTP.
+    secure: req.secure,
     maxAge: 7 * 24 * 60 * 60 * 1000,
   })
 }
