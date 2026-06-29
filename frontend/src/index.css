@@ -28,7 +28,7 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 }
 
@@ -49,6 +49,10 @@
 
   .header-glass {
     @apply bg-white/90 backdrop-blur-md border-b border-white/20;
+  }
+
+  .bottom-nav-glass {
+    @apply bg-white/90 backdrop-blur-md border-t border-white/20 shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.08)];
   }
 }
 

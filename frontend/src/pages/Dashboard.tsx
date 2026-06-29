@@ -259,10 +259,12 @@ export default function Dashboard() {
               )}
               {filterType === "year" && <div className="text-xs text-muted-foreground font-normal">{selectedYear}</div>}
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <div className="rounded-xl bg-green-100 p-2 text-green-600">
+              <TrendingUp className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-3xl font-bold tracking-tight text-green-600">
               R$ {totalReceitas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
@@ -280,10 +282,12 @@ export default function Dashboard() {
               )}
               {filterType === "year" && <div className="text-xs text-muted-foreground font-normal">{selectedYear}</div>}
             </CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+            <div className="rounded-xl bg-red-100 p-2 text-red-600">
+              <TrendingDown className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-3xl font-bold tracking-tight text-red-600">
               R$ {totalDespesas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
@@ -301,10 +305,12 @@ export default function Dashboard() {
               )}
               {filterType === "year" && <div className="text-xs text-muted-foreground font-normal">{selectedYear}</div>}
             </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <div className="rounded-xl bg-blue-100 p-2 text-blue-600">
+              <Calendar className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
+            <div className={`text-3xl font-bold tracking-tight ${saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
               R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
@@ -322,10 +328,12 @@ export default function Dashboard() {
               )}
               {filterType === "year" && <div className="text-xs text-muted-foreground font-normal">{selectedYear}</div>}
             </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <div className="rounded-xl bg-purple-100 p-2 text-purple-600">
+              <Calendar className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{filteredTransactions.length}</div>
+            <div className="text-3xl font-bold tracking-tight">{filteredTransactions.length}</div>
           </CardContent>
         </Card>
       </div>

@@ -27,13 +27,17 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-green-50 px-4">
-      <Card className="w-full max-w-sm">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-green-50 px-4">
+      <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-blue-400/30 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-green-400/30 blur-3xl" />
+      <Card className="relative w-full max-w-sm shadow-xl">
         <CardHeader className="items-center text-center">
-          <div className="p-3 bg-gradient-to-br from-blue-500 to-green-500 rounded-lg mb-2">
+          <div className="p-3 bg-gradient-to-br from-blue-500 to-green-500 rounded-2xl mb-2 shadow-md float-animation">
             <Clover className="h-6 w-6 text-white" />
           </div>
-          <CardTitle>Gestor de Loterias</CardTitle>
+          <CardTitle className="bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+            Gestor de Loterias
+          </CardTitle>
           <CardDescription>Entre para acessar o sistema</CardDescription>
         </CardHeader>
         <CardContent>

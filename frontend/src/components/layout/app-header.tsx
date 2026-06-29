@@ -1,9 +1,7 @@
-import { Home, TrendingUp, TrendingDown, FileText, Clover, Menu, LogOut } from "lucide-react"
+import { Home, TrendingUp, TrendingDown, FileText, Clover, LogOut } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
-import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 
@@ -36,7 +34,6 @@ const items = [
 
 export function AppHeader() {
   const { pathname } = useLocation()
-  const [isOpen, setIsOpen] = useState(false)
   const { logout } = useAuth()
 
   return (
@@ -76,60 +73,51 @@ export function AppHeader() {
           </Button>
         </nav>
 
-        {/* Menu Mobile */}
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild className="md:hidden">
-            <Button variant="ghost" size="icon" className="hover:bg-white/50">
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Abrir menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-[300px] sm:w-[400px] bg-white/95 backdrop-blur-md">
-            <SheetHeader>
-              <SheetTitle className="flex items-center gap-2">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-green-500 rounded-lg">
-                  <Clover className="h-4 w-4 text-white" />
-                </div>
-                <span className="bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-                  Gestor de Loterias
-                </span>
-              </SheetTitle>
-              <SheetDescription>Sistema Financeiro para Loteria</SheetDescription>
-            </SheetHeader>
-            <nav className="flex flex-col gap-2 mt-6">
-              {items.map((item) => (
-                <Link
-                  key={item.title}
-                  to={item.url}
-                  onClick={() => setIsOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
-                    pathname === item.url
-                      ? "bg-gradient-to-r from-blue-500 to-green-500 text-white shadow-lg"
-                      : "text-muted-foreground hover:bg-white/50 hover:text-foreground",
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  <div className="flex flex-col">
-                    <span className="font-medium">{item.title}</span>
-                    <span className="text-xs opacity-70">{item.description}</span>
-                  </div>
-                </Link>
-              ))}
-              <button
-                onClick={() => {
-                  setIsOpen(false)
-                  logout()
-                }}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-white/50 hover:text-foreground transition-all duration-200"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="font-medium">Sair</span>
-              </button>
-            </nav>
-          </SheetContent>
-        </Sheet>
+        {/* Sair (mobile) */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden hover:bg-white/50"
+          onClick={() => logout()}
+        >
+          <LogOut className="h-5 w-5" />
+          <span className="sr-only">Sair</span>
+        </Button>
       </div>
     </header>
+  )
+}
+
+export function AppBottomNav() {
+  const { pathname } = useLocation()
+
+  return (
+    <nav className="fixed bottom-0 inset-x-0 z-50 md:hidden bottom-nav-glass pb-[env(safe-area-inset-bottom)]">
+      <div className="grid grid-cols-4">
+        {items.map((item) => {
+          const isActive = pathname === item.url
+          return (
+            <Link
+              key={item.title}
+              to={item.url}
+              className={cn(
+                "flex flex-col items-center justify-center gap-1 py-2.5 text-xs transition-colors duration-200",
+                isActive ? "text-blue-600" : "text-muted-foreground",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex items-center justify-center rounded-xl p-1.5 transition-all duration-200",
+                  isActive && "bg-gradient-to-br from-blue-500/15 to-green-500/15",
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+              </span>
+              <span className={cn(isActive && "font-medium")}>{item.title}</span>
+            </Link>
+          )
+        })}
+      </div>
+    </nav>
   )
 }

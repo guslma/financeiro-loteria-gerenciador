@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Filter, Upload } from "lucide-react"
+import { FileText, Filter, TrendingDown, TrendingUp, Upload } from "lucide-react"
 import { Link } from "react-router-dom"
 import { toast } from "@/hooks/use-toast"
 import { fetchTransactions } from "@/lib/api-client"
@@ -691,9 +691,12 @@ export default function Relatorios() {
                 <div className="text-xs text-muted-foreground font-normal">{filters.selectedYear}</div>
               )}
             </CardTitle>
+            <div className="rounded-xl bg-green-100 p-2 text-green-600">
+              <TrendingUp className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-3xl font-bold tracking-tight text-green-600">
               R$ {totalReceitas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
@@ -717,9 +720,12 @@ export default function Relatorios() {
                 <div className="text-xs text-muted-foreground font-normal">{filters.selectedYear}</div>
               )}
             </CardTitle>
+            <div className="rounded-xl bg-red-100 p-2 text-red-600">
+              <TrendingDown className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-3xl font-bold tracking-tight text-red-600">
               R$ {totalDespesas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
@@ -743,9 +749,12 @@ export default function Relatorios() {
                 <div className="text-xs text-muted-foreground font-normal">{filters.selectedYear}</div>
               )}
             </CardTitle>
+            <div className="rounded-xl bg-blue-100 p-2 text-blue-600">
+              <Filter className="h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
+            <div className={`text-3xl font-bold tracking-tight ${saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
               R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
           </CardContent>

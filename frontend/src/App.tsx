@@ -1,5 +1,5 @@
 import { Routes, Route } from "react-router-dom"
-import { AppHeader } from "@/components/layout/app-header"
+import { AppHeader, AppBottomNav } from "@/components/layout/app-header"
 import { Toaster } from "@/components/ui/toaster"
 import Dashboard from "@/pages/Dashboard"
 import Receitas from "@/pages/Receitas"
@@ -25,7 +25,7 @@ function App() {
       <div className="fixed inset-0 bg-gradient-to-br from-white/80 via-transparent to-white/60 pointer-events-none" />
       <div className="relative z-10">
         <AppHeader />
-        <main className="container mx-auto px-4 py-6">
+        <main className="container mx-auto px-4 py-6 pb-24 md:pb-6">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/receitas" element={<Receitas />} />
@@ -34,6 +34,7 @@ function App() {
             <Route path="/importar" element={<Importar />} />
           </Routes>
         </main>
+        <AppBottomNav />
         <Toaster />
       </div>
     </div>
