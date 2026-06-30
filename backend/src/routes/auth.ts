@@ -1,15 +1,25 @@
 import { Router } from "express"
+import rateLimit from "express-rate-limit"
 import { z } from "zod"
 import { checkCredentials, clearSessionCookie, createSessionToken, requireAuth, setSessionCookie } from "../lib/auth"
 
 const router = Router()
+
+// Rate limiting específico do login: 5 tentativas por minuto
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas de login. Aguarde 1 minuto." },
+})
 
 const loginSchema = z.object({
   username: z.string().trim().min(1),
   password: z.string().min(1),
 })
 
-router.post("/login", (req, res) => {
+router.post("/login", loginLimiter, (req, res) => {
   const parsed = loginSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() })

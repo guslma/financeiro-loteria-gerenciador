@@ -51,6 +51,8 @@ export function clearSessionCookie(res: Response) {
   res.clearCookie(SESSION_COOKIE)
 }
 
+const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"])
+
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies?.[SESSION_COOKIE]
   if (!token) {
@@ -59,6 +61,16 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = jwt.verify(token, getJwtSecret()) as jwt.JwtPayload
     req.auth = { username: payload.sub as string }
+
+    // Rotação de sessão nas requisições de mutação (POST/PUT/DELETE): emite
+    // um novo token com validade renovada (sliding expiration), reduzindo a
+    // janela de uso de um token vazado. Em GETs apenas validamos sem girar
+    // o token para evitar o overhead de assinar JWT em toda listagem.
+    if (MUTATION_METHODS.has(req.method)) {
+      const newToken = createSessionToken(payload.sub as string)
+      setSessionCookie(req, res, newToken)
+    }
+
     next()
   } catch {
     return res.status(401).json({ error: "Sessão inválida ou expirada" })
