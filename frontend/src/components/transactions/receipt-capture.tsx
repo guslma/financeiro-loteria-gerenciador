@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { extractReceipt } from "@/lib/api-client"
 
 interface ReceiptCaptureProps {
   onExtracted: (data: { amountGuess: number | null; dateGuess: string | null; categoryGuess: string | null }) => void
@@ -25,8 +26,7 @@ export function ReceiptCapture({ onExtracted, onFileSelected, existingPhotoUrl }
     setIsProcessing(true)
 
     try {
-      const { extractReceiptData } = await import("@/lib/receipt-ocr")
-      const result = await extractReceiptData(file)
+      const result = await extractReceipt(file)
       onExtracted(result)
 
       if (result.amountGuess === null && result.dateGuess === null && result.categoryGuess === null) {

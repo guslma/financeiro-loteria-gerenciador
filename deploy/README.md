@@ -15,6 +15,7 @@ primeira vez:
 ```bash
 mkdir -p /DATA/AppData/gestor-de-loterias/postgres
 mkdir -p /DATA/AppData/gestor-de-loterias/uploads
+mkdir -p /DATA/AppData/gestor-de-loterias/ocr-models
 chown -R 70:70 /DATA/AppData/gestor-de-loterias/postgres
 ```
 
@@ -39,6 +40,14 @@ segredos reais, fora do git/Docker Hub), use o conteúdo dele em vez do
 Via interface: App Store → "Instalar app personalizado" → cole o conteúdo de
 `deploy/docker-compose.yml` (com `APP_USERNAME`/`APP_PASSWORD`/`APP_JWT_SECRET`
 já trocados pelos seus valores).
+
+**Atenção (serviço `ocr`):** esse serviço builda a imagem a partir de
+`../services/ocr`, então só funciona quando o compose roda a partir de um
+clone do repositório (ex.: o método "Instalar em qualquer Docker" abaixo).
+Colar o YAML direto no App Store do CasaOS **não** dá acesso a esse código
+fonte, então o serviço `ocr` vai falhar nesse fluxo até existir uma imagem
+publicada (`guslma/gestor-de-loterias-ocr` ou similar) pra referenciar em vez
+de `build:`.
 
 Via terminal (SSH no servidor):
 

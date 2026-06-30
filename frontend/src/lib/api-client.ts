@@ -89,6 +89,17 @@ export function uploadReceipt(file: File): Promise<{ path: string }> {
   return uploadFile("/api/receipts", file)
 }
 
+export interface ReceiptExtraction {
+  amountGuess: number | null
+  dateGuess: string | null
+  categoryGuess: string | null
+  rawText: string
+}
+
+export function extractReceipt(file: File): Promise<ReceiptExtraction> {
+  return uploadFile("/api/receipts/extract", file)
+}
+
 export interface ImportPreview {
   year: number
   total: number
