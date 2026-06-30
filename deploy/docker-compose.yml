@@ -29,8 +29,7 @@ services:
 
   ocr:
     container_name: gestor-de-loterias-ocr
-    build:
-      context: ../services/ocr
+    image: guslma/gestor-de-loterias-ocr:latest
     platform: linux/amd64
     volumes:
       - /DATA/AppData/gestor-de-loterias/ocr-models:/root/.paddleocr

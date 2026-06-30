@@ -4,6 +4,9 @@ Este `docker-compose.yml` usa a imagem já publicada em
 [`guslma/gestor-de-loterias`](https://hub.docker.com/r/guslma/gestor-de-loterias)
 (amd64 e arm64) em vez de buildar localmente — é o formato que o CasaOS/ZimaOS
 espera para instalar como app oficial (ícone, nome e descrição na interface).
+O serviço `ocr` (`guslma/gestor-de-loterias-ocr`), usado pra ler comprovantes
+via PaddleOCR, só tem imagem publicada para **amd64** — em hosts arm64 (ex.:
+Raspberry Pi) ele não vai subir.
 
 ## Antes do primeiro `docker compose up -d` (importante)
 
@@ -40,14 +43,6 @@ segredos reais, fora do git/Docker Hub), use o conteúdo dele em vez do
 Via interface: App Store → "Instalar app personalizado" → cole o conteúdo de
 `deploy/docker-compose.yml` (com `APP_USERNAME`/`APP_PASSWORD`/`APP_JWT_SECRET`
 já trocados pelos seus valores).
-
-**Atenção (serviço `ocr`):** esse serviço builda a imagem a partir de
-`../services/ocr`, então só funciona quando o compose roda a partir de um
-clone do repositório (ex.: o método "Instalar em qualquer Docker" abaixo).
-Colar o YAML direto no App Store do CasaOS **não** dá acesso a esse código
-fonte, então o serviço `ocr` vai falhar nesse fluxo até existir uma imagem
-publicada (`guslma/gestor-de-loterias-ocr` ou similar) pra referenciar em vez
-de `build:`.
 
 Via terminal (SSH no servidor):
 

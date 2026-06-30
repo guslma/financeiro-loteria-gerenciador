@@ -27,6 +27,7 @@ services:
     restart: unless-stopped
 
   ocr:
+    image: guslma/gestor-de-loterias-ocr:latest
     build:
       context: services/ocr
     platform: linux/amd64
