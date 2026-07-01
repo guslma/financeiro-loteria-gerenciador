@@ -11,6 +11,7 @@ import settingsRouter from "./routes/settings"
 import authRouter from "./routes/auth"
 import { requireAuth } from "./lib/auth"
 import { runMigrations } from "./migrate"
+import { migrateUploads } from "./migrate-uploads"
 import { logger } from "./lib/logger"
 
 for (const name of ["APP_USERNAME", "APP_PASSWORD", "APP_JWT_SECRET"]) {
@@ -133,7 +134,19 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 })
 
 runMigrations()
-  .then(() => {
+  .then(async () => {
+    // Migra fotos antigas (.jpg/.png) para o formato criptografado (.enc)
+    // automaticamente na inicialização. Idempotente: arquivos já migrados
+    // são ignorados. Erros na migração não impedem o app de subir.
+    try {
+      const result = await migrateUploads({ execute: true, quiet: true })
+      if (result.migrated > 0) {
+        logger.info({ migrados: result.migrated, erros: result.errors }, "Uploads migrados")
+      }
+    } catch (error) {
+      logger.error({ error }, "Erro ao migrar uploads antigos — app continuara funcionando")
+    }
+
     app.listen(PORT, () => {
       logger.info(`Gestor de Loterias rodando em http://0.0.0.0:${PORT}`)
     })
