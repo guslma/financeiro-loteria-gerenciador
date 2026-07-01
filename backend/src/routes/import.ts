@@ -5,7 +5,25 @@ import { resolveCategoryId } from "../lib/categories"
 import { parseBalancoWorkbook } from "../lib/import-balanco"
 
 const router = Router()
-const upload = multer({ storage: multer.memoryStorage() })
+
+const IMPORT_MAX_SIZE = 10 * 1024 * 1024 // 10MB
+const ALLOWED_IMPORT_MIMES = [
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+]
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: IMPORT_MAX_SIZE },
+  fileFilter: (_req, file, cb) => {
+    const extMatch = file.originalname.match(/\.(xlsx|xls)$/i)
+    if (ALLOWED_IMPORT_MIMES.includes(file.mimetype) || extMatch) {
+      cb(null, true)
+    } else {
+      cb(new Error("Formato de arquivo não suportado. Envie um arquivo .xlsx"))
+    }
+  },
+})
 
 router.post("/", upload.single("file"), async (req, res) => {
   const dryRun = req.query.dryRun === "true"

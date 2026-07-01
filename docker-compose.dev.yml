@@ -7,7 +7,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://gestor:gestor@postgres:5432/gestor
+      DATABASE_URL: postgresql://gestor:${POSTGRES_PASSWORD:-gestor}@postgres:5432/gestor
       UPLOADS_DIR: /app/backend/uploads
       CHOKIDAR_USEPOLLING: "true"
       APP_USERNAME: ${APP_USERNAME:-admin}
@@ -58,7 +58,7 @@ services:
       - "5434:5432"
     environment:
       POSTGRES_USER: gestor
-      POSTGRES_PASSWORD: gestor
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gestor}
       POSTGRES_DB: gestor
     volumes:
       - db-dev:/var/lib/postgresql/data

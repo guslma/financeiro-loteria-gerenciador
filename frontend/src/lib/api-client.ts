@@ -27,7 +27,7 @@ export const UNAUTHORIZED_EVENT = "auth:unauthorized"
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest", ...init?.headers },
   })
   if (response.status === 401) {
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
@@ -77,7 +77,7 @@ export function updateTransaction(
 async function uploadFile<T>(url: string, file: File): Promise<T> {
   const formData = new FormData()
   formData.append("file", file)
-  const response = await fetch(url, { method: "POST", body: formData })
+  const response = await fetch(url, { method: "POST", body: formData, headers: { "X-Requested-With": "XMLHttpRequest" } })
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     throw new Error(body?.error ?? `Erro ${response.status}`)
