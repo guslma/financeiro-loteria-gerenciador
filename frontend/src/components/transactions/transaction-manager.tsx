@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Plus, Edit, Trash2, Camera } from "lucide-react"
+import { Plus, Edit, Trash2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { CurrencyInput, parseCurrencyValue } from "@/components/transactions/currency-input"
 import { CategoryManager } from "@/components/transactions/category-manager"
@@ -41,6 +41,7 @@ import {
   uploadReceipt,
 } from "@/lib/api-client"
 import type { Transaction } from "@/lib/api-client"
+import { getReceiptUrl, getReceiptThumbUrl } from "@/lib/api-client"
 import { formatDatePtBR } from "@/lib/dates"
 import { categoriesMatch } from "@/lib/categories"
 
@@ -81,6 +82,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [lightboxTransaction, setLightboxTransaction] = useState<Transaction | null>(null)
 
   useEffect(() => {
     loadTransactions()
@@ -412,15 +414,19 @@ export function TransactionManager({ type }: TransactionManagerProps) {
                   <div className="flex items-center gap-2 text-sm capitalize">
                     {transaction.category}
                     {transaction.receiptPhotoPath && (
-                      <a
-                        href={transaction.receiptPhotoPath}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => setLightboxTransaction(transaction)}
                         title="Ver comprovante"
-                        className="text-muted-foreground hover:text-foreground"
+                        className="shrink-0"
                       >
-                        <Camera className="h-4 w-4" />
-                      </a>
+                        <img
+                          src={getReceiptThumbUrl(transaction.receiptPhotoPath) ?? ""}
+                          alt="Comprovante"
+                          className="h-7 w-7 rounded border object-cover transition-transform hover:scale-110"
+                          onError={(e) => { e.currentTarget.style.display = "none" }}
+                        />
+                      </button>
                     )}
                   </div>
                   <div className="flex gap-2">
@@ -455,15 +461,21 @@ export function TransactionManager({ type }: TransactionManagerProps) {
                       <div className="flex items-center gap-2">
                         {transaction.category}
                         {transaction.receiptPhotoPath && (
-                          <a
-                            href={transaction.receiptPhotoPath}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => setLightboxTransaction(transaction)}
                             title="Ver comprovante"
-                            className="text-muted-foreground hover:text-foreground"
+                            className="shrink-0"
                           >
-                            <Camera className="h-4 w-4" />
-                          </a>
+                            <img
+                              src={getReceiptThumbUrl(transaction.receiptPhotoPath) ?? ""}
+                              alt="Comprovante"
+                              className="h-7 w-7 rounded border object-cover transition-transform hover:scale-110"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none"
+                              }}
+                            />
+                          </button>
                         )}
                       </div>
                     </TableCell>
@@ -507,6 +519,37 @@ export function TransactionManager({ type }: TransactionManagerProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Lightbox de comprovante */}
+      <Dialog
+        open={!!lightboxTransaction}
+        onOpenChange={(open) => {
+          if (!open) setLightboxTransaction(null)
+        }}
+      >
+        <DialogContent className="max-w-[90vw] border-0 bg-black/90 p-0 sm:max-w-[700px]">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Comprovante</DialogTitle>
+          </DialogHeader>
+          {lightboxTransaction?.receiptPhotoPath && (
+            <img
+              src={getReceiptUrl(lightboxTransaction.receiptPhotoPath) ?? ""}
+              alt="Comprovante"
+              className="h-auto max-h-[85vh] w-full rounded-lg object-contain"
+            />
+          )}
+          <DialogFooter className="absolute bottom-2 right-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setLightboxTransaction(null)}
+              className="bg-black/50 text-white hover:bg-black/70"
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

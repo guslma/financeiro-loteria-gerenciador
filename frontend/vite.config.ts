@@ -9,6 +9,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: "script", // Gera /registerSW.js externo em vez de script inline
+      // permite CSP script-src: 'self' sem 'unsafe-inline'
       manifest: {
         name: "Gestor de Loterias",
         short_name: "Gestor de Loterias",
@@ -46,7 +48,6 @@ export default defineConfig({
     },
     proxy: {
       "/api": process.env.VITE_BACKEND_URL ?? "http://localhost:3000",
-      "/uploads": process.env.VITE_BACKEND_URL ?? "http://localhost:3000",
     },
   },
 })

@@ -8,21 +8,25 @@ const router = Router()
 
 const typeSchema = z.enum(["receita", "despesa"])
 
+const TRANSACTION_DESC_MAX = 500
+const CATEGORY_NAME_MAX = 100
+const PHOTO_PATH_MAX = 500
+
 const createTransactionSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  description: z.string().trim().min(1),
+  description: z.string().trim().min(1).max(TRANSACTION_DESC_MAX),
   amount: z.number().positive(),
   type: typeSchema,
-  category: z.string().trim().min(1),
-  receiptPhotoPath: z.string().trim().min(1).optional(),
+  category: z.string().trim().min(1).max(CATEGORY_NAME_MAX),
+  receiptPhotoPath: z.string().trim().min(1).max(PHOTO_PATH_MAX).optional(),
 })
 
 const updateTransactionSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  description: z.string().trim().min(1),
+  description: z.string().trim().min(1).max(TRANSACTION_DESC_MAX),
   amount: z.number().positive(),
-  category: z.string().trim().min(1),
-  receiptPhotoPath: z.string().trim().min(1).optional(),
+  category: z.string().trim().min(1).max(CATEGORY_NAME_MAX),
+  receiptPhotoPath: z.string().trim().min(1).max(PHOTO_PATH_MAX).optional(),
 })
 
 interface TransactionRow {

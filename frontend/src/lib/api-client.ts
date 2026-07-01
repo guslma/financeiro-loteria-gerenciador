@@ -89,6 +89,39 @@ export function uploadReceipt(file: File): Promise<{ path: string }> {
   return uploadFile("/api/receipts", file)
 }
 
+// ── Helpers para URLs de comprovantes ─────────────────────────────────
+
+/**
+ * Extrai o UUID de qualquer formato de receiptPhotoPath.
+ * Aceita: /uploads/receipts/{uuid}.ext, /api/receipts/files/{uuid}, ou {uuid} puro.
+ */
+function extractUuidFromPath(path: string): string | null {
+  const m = path.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
+  return m?.[1] ?? null
+}
+
+/** Retorna a URL da imagem completa de um comprovante. */
+export function getReceiptUrl(receiptPhotoPath: string | null | undefined): string | null {
+  if (!receiptPhotoPath) return null
+  // URL absoluta (externa) — passa direto
+  if (receiptPhotoPath.startsWith("http")) return receiptPhotoPath
+  // Extrai o UUID de qualquer formato (antigo /uploads/... ou novo UUID puro)
+  const uuid = extractUuidFromPath(receiptPhotoPath)
+  if (uuid) return `/api/receipts/files/${uuid}`
+  return null
+}
+
+/** Retorna a URL da thumbnail de um comprovante. */
+export function getReceiptThumbUrl(receiptPhotoPath: string | null | undefined): string | null {
+  if (!receiptPhotoPath) return null
+  // URL absoluta — sem thumbnail
+  if (receiptPhotoPath.startsWith("http")) return null
+  // Extrai o UUID de qualquer formato
+  const uuid = extractUuidFromPath(receiptPhotoPath)
+  if (uuid) return `/api/receipts/files/${uuid}/thumb`
+  return null
+}
+
 export interface ReceiptExtraction {
   amountGuess: number | null
   dateGuess: string | null

@@ -10,7 +10,6 @@ import importRouter from "./routes/import"
 import settingsRouter from "./routes/settings"
 import authRouter from "./routes/auth"
 import { requireAuth } from "./lib/auth"
-import { UPLOADS_DIR } from "./lib/receipt-storage"
 import { runMigrations } from "./migrate"
 import { logger } from "./lib/logger"
 
@@ -28,19 +27,44 @@ const FRONTEND_DIST = process.env.FRONTEND_DIST ?? path.join(__dirname, "..", ".
 
 // Headers de segurança HTTP.
 //
-// CSP desligado: o vite-plugin-pwa injeta scripts inline para registrar o
-// service worker, e o helmet padrão ("script-src: 'self'") bloquearia.
-// HSTS desligado: o app roda em rede local/ZimaOS frequentemente via HTTP
-// puro — HSTS forçaria HTTPS em visitas futuras, impedindo o acesso.
+// CSP configurado para permitir apenas recursos da própria origem.
+// O script-src não usa 'unsafe-inline' porque o VitePWA foi configurado
+// com injectRegister: "script", gerando um arquivo /registerSW.js externo.
+// style-src usa 'unsafe-inline' porque o Radix UI/Tailwind injetam estilos
+// inline em runtime. img-src inclui data: e blob: para preview de
+// comprovantes e PDF exports.
 //
-// Os demais headers do helmet (X-Content-Type-Options, X-Frame-Options,
-// X-Download-Options, etc.) permanecem ativos.
+// HSTS é definido condicionalmente via middleware abaixo: só é enviado
+// quando a conexão realmente é HTTPS (req.secure), evitando quebrar
+// deploys locais/ZimaOS que rodam em HTTP puro.
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        manifestSrc: ["'self'"],
+      },
+    },
     strictTransportSecurity: false,
   }),
 )
+
+// HSTS condicional: só envia o header quando a conexão é HTTPS.
+// Isso evita quebrar acessos via HTTP puro (comum em rede local/ZimaOS).
+app.use((req, res, next) => {
+  if (req.secure) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+  }
+  next()
+})
 
 // Rate limiting aplicado APENAS nas rotas /api/* — arquivos estáticos (JS,
 // CSS, imagens) não são limitados para não degradar a experiência do usuário.
@@ -92,13 +116,14 @@ app.use("/api/receipts", requireAuth, receiptsRouter)
 app.use("/api/import", requireAuth, importRouter)
 app.use("/api/settings", requireAuth, settingsRouter)
 
-app.use("/uploads", requireAuth, express.static(UPLOADS_DIR))
-
 // Serve o build do frontend e cai no index.html pra qualquer rota que não
-// seja /api/* ou /uploads/* — necessário pro react-router funcionar com
+// seja /api/* — necessário pro react-router funcionar com
 // refresh direto em rotas como /relatorios.
+//
+// Uploads de comprovantes agora são servidos via /api/receipts/files/:uuid
+// com descriptografia on-the-fly (a rota /uploads foi removida).
 app.use(express.static(FRONTEND_DIST))
-app.get(/^(?!\/api|\/uploads).*/, (_req, res) => {
+app.get(/^(?!\/api).*/, (_req, res) => {
   res.sendFile(path.join(FRONTEND_DIST, "index.html"))
 })
 

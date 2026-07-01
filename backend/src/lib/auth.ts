@@ -13,6 +13,20 @@ function getJwtSecret(): string {
   return secret
 }
 
+/**
+ * Versão da sessão usada no JWT para permitir revogação remota de todas
+ * as sessões. Ao incrementar SESSION_VERSION, todos os tokens existentes
+ * se tornam inválidos e os usuários precisam fazer login novamente.
+ *
+ * Use: export SESSION_VERSION=2  # invalida todas as sessões atuais
+ */
+function getSessionVersion(): number {
+  const raw = process.env.SESSION_VERSION
+  if (!raw) return 1 // versão padrão para backward compatibility
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 1 ? n : 1
+}
+
 function timingSafeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a)
   const bufB = Buffer.from(b)
@@ -30,7 +44,7 @@ export function checkCredentials(username: string, password: string): boolean {
 }
 
 export function createSessionToken(username: string): string {
-  return jwt.sign({ sub: username }, getJwtSecret(), { expiresIn: SESSION_DURATION })
+  return jwt.sign({ sub: username, ver: getSessionVersion() }, getJwtSecret(), { expiresIn: SESSION_DURATION })
 }
 
 export function setSessionCookie(req: Request, res: Response, token: string) {
@@ -60,6 +74,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
   try {
     const payload = jwt.verify(token, getJwtSecret()) as jwt.JwtPayload
+
+    // Verifica versão do token para permitir revogação remota de sessões.
+    if ((payload.ver as number | undefined) !== getSessionVersion()) {
+      return res.status(401).json({ error: "Sessão expirada (versão do token desatualizada). Faça login novamente." })
+    }
+
     req.auth = { username: payload.sub as string }
 
     // Rotação de sessão nas requisições de mutação (POST/PUT/DELETE): emite

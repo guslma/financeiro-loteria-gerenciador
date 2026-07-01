@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { extractReceipt } from "@/lib/api-client"
+import { extractReceipt, getReceiptUrl } from "@/lib/api-client"
 
 interface ReceiptCaptureProps {
   onExtracted: (data: { amountGuess: number | null; dateGuess: string | null; categoryGuess: string | null }) => void
@@ -14,7 +14,9 @@ interface ReceiptCaptureProps {
 }
 
 export function ReceiptCapture({ onExtracted, onFileSelected, existingPhotoUrl }: ReceiptCaptureProps) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(existingPhotoUrl ?? null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    existingPhotoUrl ? getReceiptUrl(existingPhotoUrl) : null,
+  )
   const [isProcessing, setIsProcessing] = useState(false)
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
