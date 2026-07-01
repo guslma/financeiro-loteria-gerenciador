@@ -2,6 +2,7 @@ import { Router } from "express"
 import rateLimit from "express-rate-limit"
 import { z } from "zod"
 import { checkCredentials, clearSessionCookie, createSessionToken, requireAuth, setSessionCookie } from "../lib/auth"
+import { logger } from "../lib/logger"
 
 const router = Router()
 
@@ -15,8 +16,8 @@ const loginLimiter = rateLimit({
 })
 
 const loginSchema = z.object({
-  username: z.string().trim().min(1),
-  password: z.string().min(1),
+  username: z.string().trim().min(1).max(100),
+  password: z.string().min(1).max(128),
 })
 
 router.post("/login", loginLimiter, (req, res) => {
@@ -27,8 +28,11 @@ router.post("/login", loginLimiter, (req, res) => {
 
   const { username, password } = parsed.data
   if (!checkCredentials(username, password)) {
+    logger.warn({ ip: req.ip, username }, "Tentativa de login inválida")
     return res.status(401).json({ error: "Usuário ou senha inválidos" })
   }
+
+  logger.info({ username }, "Login bem-sucedido")
 
   const token = createSessionToken(username)
   setSessionCookie(req, res, token)

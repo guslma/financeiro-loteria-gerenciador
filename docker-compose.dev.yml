@@ -13,6 +13,8 @@ services:
       APP_USERNAME: ${APP_USERNAME:-admin}
       APP_PASSWORD: ${APP_PASSWORD:-admin}
       APP_JWT_SECRET: ${APP_JWT_SECRET:-dev-secret-troque-em-producao}
+      SESSION_VERSION: ${SESSION_VERSION:-1}
+      STORAGE_ENCRYPTION_KEY: ${STORAGE_ENCRYPTION_KEY:-}
       OCR_SERVICE_URL: http://ocr:8000
       OLLAMA_URL: ${OLLAMA_URL:-http://192.168.1.10:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5vl:3b}

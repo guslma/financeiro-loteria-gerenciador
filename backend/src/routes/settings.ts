@@ -5,7 +5,7 @@ import { pool } from "../db"
 const router = Router()
 
 const updateSettingsSchema = z.object({
-  storeName: z.string().trim().min(1),
+  storeName: z.string().trim().min(1).max(200),
 })
 
 async function getOrCreateSettings() {

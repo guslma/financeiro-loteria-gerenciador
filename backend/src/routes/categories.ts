@@ -7,13 +7,15 @@ const router = Router()
 
 const typeSchema = z.enum(["receita", "despesa"])
 
+const CATEGORY_NAME_MAX = 100
+
 const createCategorySchema = z.object({
-  name: z.string().trim().min(1),
+  name: z.string().trim().min(1).max(CATEGORY_NAME_MAX),
   type: typeSchema,
 })
 
 const renameSchema = z.object({
-  name: z.string().trim().min(1),
+  name: z.string().trim().min(1).max(CATEGORY_NAME_MAX),
 })
 
 interface CategoryRow {
