@@ -22,7 +22,15 @@ for (const name of ["APP_USERNAME", "APP_PASSWORD", "APP_JWT_SECRET"]) {
 }
 
 const app = express()
-app.set("trust proxy", 1)
+// Confia em X-Forwarded-* apenas em loopback + no(s) IP(s) listados em
+// TRUSTED_PROXY_IP (CSV), tipicamente o IP do host na LAN quando há um
+// reverse proxy rodando em --network host (ex.: cloudflared do Cloudflare
+// Tunnel) na frente do container. Um "trust proxy" genérico (true/1)
+// confiaria nesses headers vindos de QUALQUER dispositivo na rede,
+// permitindo forjar X-Forwarded-For pra burlar o rate limit do login.
+// Sem essa variável, só loopback é confiável (sem reverse proxy externo).
+const trustedProxies = ["loopback", ...(process.env.TRUSTED_PROXY_IP?.split(",").map((ip) => ip.trim()) ?? [])]
+app.set("trust proxy", trustedProxies)
 const PORT = process.env.PORT ?? 3000
 const FRONTEND_DIST = process.env.FRONTEND_DIST ?? path.join(__dirname, "..", "..", "frontend", "dist")
 
