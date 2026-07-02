@@ -34,6 +34,12 @@ Você **precisa** trocar estes valores:
 > ⚠️ **Importante:** Se não trocar essas senhas, qualquer pessoa que acessar
 > seu servidor poderá ver seus dados financeiros.
 
+> ℹ️ Só se você for expor o app pela internet via Cloudflare Tunnel/Tailscale
+> Funnel (veja a seção [Acesso remoto](#acesso-remoto-fora-de-casa) mais
+> abaixo): adicione a variável `TRUSTED_PROXY_IP` com o IP do seu ZimaOS na
+> rede local. Sem isso o app funciona normalmente, mas não reconhece o
+> IP/protocolo real de quem acessa por fora.
+
 ### 3. Permissão da pasta do Postgres (obrigatório na primeira vez)
 
 O ZimaOS precisa de uma permissão especial na pasta onde o banco de dados
@@ -151,13 +157,25 @@ Tudo fica em `/DATA/AppData/gestor-de-loterias/`:
 ## Acesso remoto (fora de casa)
 
 O app tem login com senha, mas **não tem HTTPS** próprio — sua senha viaja
-em texto puro pela internet se você expor a porta 3000 diretamente.
+em texto puro pela internet se você expor a porta 3000 diretamente. **Nunca
+faça port-forward da 3000 no seu roteador.** Use uma das opções abaixo, que
+dão HTTPS de verdade sem abrir porta nenhuma:
 
-Opções seguras para acessar de fora:
-
-1. **VPN** (recomendado) — Instale [Tailscale](https://tailscale.com) no
+1. **VPN** (mais simples) — Instale [Tailscale](https://tailscale.com) no
    ZimaOS e rode `tailscale serve 3000` — ele já dá HTTPS automático.
-2. **Reverse proxy** — Use Nginx ou Caddy com Let's Encrypt na frente do app.
+2. **Cloudflare Tunnel** — Instale o app `cloudflared` pelo App Store do
+   ZimaOS/CasaOS, configure o túnel apontando pra porta 3000 e associe um
+   domínio seu. Não precisa mexer em firewall/roteador.
+3. **Reverse proxy manual** — Use Nginx ou Caddy com Let's Encrypt na frente
+   do app.
+
+> Se usar as opções 2 ou 3 (qualquer coisa que fique entre a internet e o
+> app, reescrevendo a requisição), configure a variável `TRUSTED_PROXY_IP`
+> (veja a tabela do passo 2, acima) com o IP do seu ZimaOS na rede local.
+> Sem isso, o app não sabe distinguir uma requisição vinda do Cloudflare
+> Tunnel de uma requisição forjada por qualquer dispositivo da sua rede
+> local — o que enfraquece o limite de tentativas de login e o cookie
+> `Secure`.
 
 ---
 
@@ -179,6 +197,7 @@ fazer nada. Se quiser usar um ícone personalizado, edite a linha `icon:` no
 | "Muitas tentativas de login" | Errou a senha 5 vezes em 1 minuto | Espere 1 minuto e tente novamente |
 | Fotos de comprovante não carregam | Chave de criptografia foi alterada | Se trocou `STORAGE_ENCRYPTION_KEY` ou `APP_JWT_SECRET`, as fotos antigas não podem ser descriptografadas. Restaure a chave anterior |
 | Erro ao fazer upload de foto | Imagem muito grande ou formato não suportado | O app aceita JPEG, PNG e WebP até 10MB. Tire a foto numa resolução normal do celular |
+| Acesso via Cloudflare Tunnel/Tailscale Funnel bloqueando login de gente diferente como se fosse a mesma pessoa | `TRUSTED_PROXY_IP` não configurada | Adicione a variável com o IP do ZimaOS na rede local (veja passo 2 e a seção [Acesso remoto](#acesso-remoto-fora-de-casa)) |
 
 ---
 
