@@ -11,6 +11,7 @@ import settingsRouter from "./routes/settings"
 import authRouter from "./routes/auth"
 import { requireAuth } from "./lib/auth"
 import { runMigrations } from "./migrate"
+import { migrateUploads } from "./migrate-uploads"
 import { logger } from "./lib/logger"
 
 for (const name of ["APP_USERNAME", "APP_PASSWORD", "APP_JWT_SECRET"]) {
@@ -21,7 +22,15 @@ for (const name of ["APP_USERNAME", "APP_PASSWORD", "APP_JWT_SECRET"]) {
 }
 
 const app = express()
-app.set("trust proxy", 1)
+// Confia em X-Forwarded-* apenas em loopback + no(s) IP(s) listados em
+// TRUSTED_PROXY_IP (CSV), tipicamente o IP do host na LAN quando há um
+// reverse proxy rodando em --network host (ex.: cloudflared do Cloudflare
+// Tunnel) na frente do container. Um "trust proxy" genérico (true/1)
+// confiaria nesses headers vindos de QUALQUER dispositivo na rede,
+// permitindo forjar X-Forwarded-For pra burlar o rate limit do login.
+// Sem essa variável, só loopback é confiável (sem reverse proxy externo).
+const trustedProxies = ["loopback", ...(process.env.TRUSTED_PROXY_IP?.split(",").map((ip) => ip.trim()) ?? [])]
+app.set("trust proxy", trustedProxies)
 const PORT = process.env.PORT ?? 3000
 const FRONTEND_DIST = process.env.FRONTEND_DIST ?? path.join(__dirname, "..", "..", "frontend", "dist")
 
@@ -51,8 +60,19 @@ app.use(
         baseUri: ["'self'"],
         formAction: ["'self'"],
         manifestSrc: ["'self'"],
+        // O helmet inclui upgrade-insecure-requests por padrão, o que faz o
+        // navegador reescrever TODO asset (JS/CSS/ícones/manifest) da página
+        // para https antes de buscar — quebra tudo com ERR_SSL_PROTOCOL_ERROR
+        // em deploys HTTP puro por IP (ZimaOS/rede local). Precisa ser null
+        // (não false) para o helmet efetivamente omitir a diretiva.
+        upgradeInsecureRequests: null,
       },
     },
+    // Desabilitado porque esses headers são ignorados pelo Chrome em HTTP
+    // com IP (ex.: 192.168.x.x) — além de gerarem warnings falsos no console.
+    // Se um dia o app rodar atrás de HTTPS, pode reativar.
+    originAgentCluster: false,
+    crossOriginOpenerPolicy: false,
     strictTransportSecurity: false,
   }),
 )
@@ -133,7 +153,19 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 })
 
 runMigrations()
-  .then(() => {
+  .then(async () => {
+    // Migra fotos antigas (.jpg/.png) para o formato criptografado (.enc)
+    // automaticamente na inicialização. Idempotente: arquivos já migrados
+    // são ignorados. Erros na migração não impedem o app de subir.
+    try {
+      const result = await migrateUploads({ execute: true, quiet: true })
+      if (result.migrated > 0) {
+        logger.info({ migrados: result.migrated, erros: result.errors }, "Uploads migrados")
+      }
+    } catch (error) {
+      logger.error({ error }, "Erro ao migrar uploads antigos — app continuara funcionando")
+    }
+
     app.listen(PORT, () => {
       logger.info(`Gestor de Loterias rodando em http://0.0.0.0:${PORT}`)
     })

@@ -19,6 +19,7 @@ services:
       OCR_SERVICE_URL: http://ocr:8000
       OLLAMA_URL: ${OLLAMA_URL:-http://192.168.1.10:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5vl:3b}
+      TRUSTED_PROXY_IP: ${TRUSTED_PROXY_IP:-}
     volumes:
       - uploads:/app/uploads
     depends_on:

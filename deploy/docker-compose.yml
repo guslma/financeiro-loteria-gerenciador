@@ -16,6 +16,11 @@ services:
       OCR_SERVICE_URL: http://ocr:8000
       OLLAMA_URL: http://192.168.1.10:11434
       OLLAMA_MODEL: qwen2.5vl:3b
+      # Só necessário se você expõe o app via um reverse proxy que roda em
+      # --network host na frente do container (ex.: cloudflared do Cloudflare
+      # Tunnel). Coloque o IP do host na LAN. Sem isso, o app só confia em
+      # requisições vindas do próprio container (loopback).
+      # TRUSTED_PROXY_IP: 192.168.1.10
     volumes:
       - /DATA/AppData/gestor-de-loterias/uploads:/app/uploads
     depends_on:
