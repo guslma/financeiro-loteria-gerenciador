@@ -52,11 +52,16 @@ app.use(
         baseUri: ["'self'"],
         formAction: ["'self'"],
         manifestSrc: ["'self'"],
+        // O helmet inclui upgrade-insecure-requests por padrão, o que faz o
+        // navegador reescrever TODO asset (JS/CSS/ícones/manifest) da página
+        // para https antes de buscar — quebra tudo com ERR_SSL_PROTOCOL_ERROR
+        // em deploys HTTP puro por IP (ZimaOS/rede local). Precisa ser null
+        // (não false) para o helmet efetivamente omitir a diretiva.
+        upgradeInsecureRequests: null,
       },
     },
     // Desabilitado porque esses headers são ignorados pelo Chrome em HTTP
-    // com IP (ex.: 192.168.x.x) — além de gerarem warnings falsos no console
-    // e, no caso do PWA com workbox, causarem "Unsafe attempt to load HTTPS".
+    // com IP (ex.: 192.168.x.x) — além de gerarem warnings falsos no console.
     // Se um dia o app rodar atrás de HTTPS, pode reativar.
     originAgentCluster: false,
     crossOriginOpenerPolicy: false,
