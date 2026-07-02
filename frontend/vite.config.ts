@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "script", // Gera /registerSW.js externo em vez de script inline
+      injectRegister: null, // Registro manual via public/register-sw.js (só ativa em HTTPS/localhost)
       // permite CSP script-src: 'self' sem 'unsafe-inline'
       manifest: {
         name: "Gestor de Loterias",

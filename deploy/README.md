@@ -101,6 +101,38 @@ docker compose up -d
 
 ---
 
+## Migração de fotos antigas (criptografia)
+
+A partir da versão com criptografia, toda foto nova de comprovante é
+comprimida para WebP, vira uma thumbnail e é criptografada com AES-256-GCM
+antes de salvar no disco.
+
+### Fotos já existentes
+
+**Não precisa fazer nada.** Na primeira vez que o container subir com a
+nova versão, ele automaticamente:
+
+1. Varre a pasta `uploads/` procurando fotos antigas (`.jpg/.png`)
+2. Comprime, gera thumbnail e criptografa cada uma
+3. Só loga se encontrou algo — se não tiver fotos antigas, passa reto
+4. É seguro rodar várias vezes (arquivos já migrados são ignorados)
+
+Isso tudo acontece em segundo plano, antes do app começar a responder.
+Dependendo da quantidade de fotos, pode levar alguns segundos na primeira
+inicialização — depois disso é instantâneo.
+
+### E se eu trocar a chave de criptografia?
+
+Se você alterar `STORAGE_ENCRYPTION_KEY` (ou `APP_JWT_SECRET`, que é usado
+como fallback), as fotos criptografadas com a chave antiga ficam
+**inacessíveis** — o app não consegue mais descriptografá-las.
+
+Para evitar isso, mantenha a `STORAGE_ENCRYPTION_KEY` fixa. Se precisar
+trocá-la, as fotos antigas precisarão ser migradas manualmente (pelo script
+`migrate-uploads.ts`) com a chave anterior.
+
+---
+
 ## Onde ficam os dados
 
 Tudo fica em `/DATA/AppData/gestor-de-loterias/`:

@@ -54,6 +54,12 @@ app.use(
         manifestSrc: ["'self'"],
       },
     },
+    // Desabilitado porque esses headers são ignorados pelo Chrome em HTTP
+    // com IP (ex.: 192.168.x.x) — além de gerarem warnings falsos no console
+    // e, no caso do PWA com workbox, causarem "Unsafe attempt to load HTTPS".
+    // Se um dia o app rodar atrás de HTTPS, pode reativar.
+    originAgentCluster: false,
+    crossOriginOpenerPolicy: false,
     strictTransportSecurity: false,
   }),
 )
