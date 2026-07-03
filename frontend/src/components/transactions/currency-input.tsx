@@ -37,7 +37,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
     }
 
     return (
-      <div className="relative">
+      <div className={cn("relative", className)}>
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
           R$
         </span>
@@ -49,7 +49,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
           value={value}
           onChange={handleChange}
           placeholder={placeholder}
-          className={cn("pl-9", className)}
+          className="w-full pl-9"
         />
       </div>
     )
