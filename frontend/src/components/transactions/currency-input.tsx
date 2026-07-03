@@ -1,6 +1,7 @@
 import type React from "react"
 
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 import { forwardRef } from "react"
 
 interface CurrencyInputProps {
@@ -36,15 +37,21 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
     }
 
     return (
-      <Input
-        ref={ref}
-        id={id}
-        type="text"
-        value={value}
-        onChange={handleChange}
-        placeholder={placeholder}
-        className={className}
-      />
+      <div className={cn("relative", className)}>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+          R$
+        </span>
+        <Input
+          ref={ref}
+          id={id}
+          type="text"
+          inputMode="numeric"
+          value={value}
+          onChange={handleChange}
+          placeholder={placeholder}
+          className="w-full pl-9"
+        />
+      </div>
     )
   },
 )
