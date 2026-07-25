@@ -83,6 +83,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null)
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [lightboxTransaction, setLightboxTransaction] = useState<Transaction | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     loadTransactions()
@@ -114,6 +115,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSaving) return
 
     const categoryToSave = formData.category === "Nova" ? customCategory : formData.category
     const amountValue = parseCurrencyValue(formData.amount)
@@ -123,42 +125,47 @@ export function TransactionManager({ type }: TransactionManagerProps) {
       return
     }
 
-    let receiptPhotoPath: string | undefined
-    if (receiptFile) {
-      try {
-        const uploaded = await uploadReceipt(receiptFile)
-        receiptPhotoPath = uploaded.path
-      } catch (error) {
-        console.error("Erro ao enviar foto do comprovante:", error)
-        toast({ title: "Erro", description: "Erro ao enviar foto do comprovante", variant: "destructive" })
-        return
-      }
-    }
-
-    const payload = {
-      date: formData.date,
-      description: `${categoryToSave} - ${formatDatePtBR(formData.date)}`,
-      amount: amountValue,
-      category: categoryToSave,
-      ...(receiptPhotoPath ? { receiptPhotoPath } : {}),
-    }
-
+    setIsSaving(true)
     try {
-      if (editingTransaction) {
-        await updateTransaction(editingTransaction.id, payload)
-        toast({ title: "Sucesso", description: `${l.singular} atualizada` })
-      } else {
-        await createTransaction({ ...payload, type })
-        toast({ title: "Sucesso", description: `${l.singular} adicionada` })
+      let receiptPhotoPath: string | undefined
+      if (receiptFile) {
+        try {
+          const uploaded = await uploadReceipt(receiptFile)
+          receiptPhotoPath = uploaded.path
+        } catch (error) {
+          console.error("Erro ao enviar foto do comprovante:", error)
+          toast({ title: "Erro", description: "Erro ao enviar foto do comprovante", variant: "destructive" })
+          return
+        }
       }
-      await loadTransactions()
-      if (formData.category === "Nova") {
-        window.dispatchEvent(new CustomEvent(`categories-updated-${type}`))
+
+      const payload = {
+        date: formData.date,
+        description: `${categoryToSave} - ${formatDatePtBR(formData.date)}`,
+        amount: amountValue,
+        category: categoryToSave,
+        ...(receiptPhotoPath ? { receiptPhotoPath } : {}),
       }
-      resetForm()
-    } catch (error) {
-      console.error(`Erro ao salvar ${l.singular.toLowerCase()}:`, error)
-      toast({ title: "Erro", description: `Erro ao salvar ${l.singular.toLowerCase()}`, variant: "destructive" })
+
+      try {
+        if (editingTransaction) {
+          await updateTransaction(editingTransaction.id, payload)
+          toast({ title: "Sucesso", description: `${l.singular} atualizada` })
+        } else {
+          await createTransaction({ ...payload, type })
+          toast({ title: "Sucesso", description: `${l.singular} adicionada` })
+        }
+        await loadTransactions()
+        if (formData.category === "Nova") {
+          window.dispatchEvent(new CustomEvent(`categories-updated-${type}`))
+        }
+        resetForm()
+      } catch (error) {
+        console.error(`Erro ao salvar ${l.singular.toLowerCase()}:`, error)
+        toast({ title: "Erro", description: `Erro ao salvar ${l.singular.toLowerCase()}`, variant: "destructive" })
+      }
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -360,7 +367,9 @@ export function TransactionManager({ type }: TransactionManagerProps) {
                   )}
                 </div>
                 <DialogFooter>
-                  <Button type="submit">{editingTransaction ? "Atualizar" : "Salvar"}</Button>
+                  <Button type="submit" disabled={isSaving}>
+                    {isSaving ? "Salvando..." : editingTransaction ? "Atualizar" : "Salvar"}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
