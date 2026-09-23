@@ -44,6 +44,7 @@ import type { Transaction } from "@/lib/api-client"
 import { getReceiptUrl, getReceiptThumbUrl } from "@/lib/api-client"
 import { formatDatePtBR } from "@/lib/dates"
 import { categoriesMatch } from "@/lib/categories"
+import { findDuplicateTransactions } from "@/lib/duplicates"
 
 interface TransactionManagerProps {
   type: "receita" | "despesa"
@@ -84,6 +85,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [lightboxTransaction, setLightboxTransaction] = useState<Transaction | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [duplicateWarning, setDuplicateWarning] = useState<Transaction[] | null>(null)
 
   useEffect(() => {
     loadTransactions()
@@ -115,6 +117,10 @@ export function TransactionManager({ type }: TransactionManagerProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    await saveTransaction(false)
+  }
+
+  const saveTransaction = async (allowDuplicate: boolean) => {
     if (isSaving) return
 
     const categoryToSave = formData.category === "Nova" ? customCategory : formData.category
@@ -127,6 +133,22 @@ export function TransactionManager({ type }: TransactionManagerProps) {
 
     setIsSaving(true)
     try {
+      // Checa antes de enviar o comprovante, pra não deixar arquivo órfão se
+      // o usuário desistir. Recarrega a lista pra pegar lançamentos feitos
+      // em outro aparelho; se falhar, usa a que já está na tela.
+      if (!allowDuplicate) {
+        const latest = await fetchTransactions(type).catch(() => transactions)
+        const duplicates = findDuplicateTransactions(
+          latest,
+          { date: formData.date, amount: amountValue, category: categoryToSave },
+          editingTransaction?.id,
+        )
+        if (duplicates.length > 0) {
+          setDuplicateWarning(duplicates)
+          return
+        }
+      }
+
       let receiptPhotoPath: string | undefined
       if (receiptFile) {
         try {
@@ -524,6 +546,40 @@ export function TransactionManager({ type }: TransactionManagerProps) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!duplicateWarning} onOpenChange={(open) => !open && setDuplicateWarning(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Possível lançamento duplicado</AlertDialogTitle>
+            <AlertDialogDescription>
+              Já existe {l.singular.toLowerCase()} com a mesma categoria e o mesmo valor neste mês:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="space-y-1 text-sm">
+            {duplicateWarning?.map((t) => (
+              <li key={t.id} className="flex justify-between gap-4 rounded border px-3 py-2">
+                <span>
+                  {formatDatePtBR(t.date)} · <span className="capitalize">{t.category}</span>
+                </span>
+                <span className={`font-medium ${l.amountColor}`}>
+                  R$ {t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setDuplicateWarning(null)
+                saveTransaction(true)
+              }}
+            >
+              Salvar mesmo assim
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
