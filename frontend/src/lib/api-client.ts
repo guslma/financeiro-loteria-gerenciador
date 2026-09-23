@@ -63,13 +63,23 @@ export function createTransaction(payload: {
   type: "receita" | "despesa"
   category: string
   receiptPhotoPath?: string
+  barcode?: string | null
+  payee?: string | null
 }): Promise<Transaction> {
   return request("/api/transactions", { method: "POST", body: JSON.stringify(payload) })
 }
 
 export function updateTransaction(
   id: string,
-  payload: { date: string; description: string; amount: number; category: string; receiptPhotoPath?: string },
+  payload: {
+    date: string
+    description: string
+    amount: number
+    category: string
+    receiptPhotoPath?: string
+    barcode?: string | null
+    payee?: string | null
+  },
 ): Promise<Transaction> {
   return request(`/api/transactions/${id}`, { method: "PUT", body: JSON.stringify(payload) })
 }
@@ -126,6 +136,12 @@ export interface ReceiptExtraction {
   amountGuess: number | null
   dateGuess: string | null
   categoryGuess: string | null
+  barcodeGuess: string | null
+  payeeGuess: string | null
+  // "historico" quando a categoria veio de uma despesa antiga parecida;
+  // categoryReason diz qual critério bateu (ex.: "mesmo beneficiário").
+  categorySource: "ia" | "historico" | null
+  categoryReason: string | null
 }
 
 export function extractReceipt(file: File): Promise<ReceiptExtraction> {

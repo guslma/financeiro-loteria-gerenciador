@@ -6,9 +6,10 @@ import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { extractReceipt, getReceiptUrl } from "@/lib/api-client"
+import type { ReceiptExtraction } from "@/lib/api-client"
 
 interface ReceiptCaptureProps {
-  onExtracted: (data: { amountGuess: number | null; dateGuess: string | null; categoryGuess: string | null }) => void
+  onExtracted: (data: ReceiptExtraction) => void
   onFileSelected: (file: File) => void
   existingPhotoUrl?: string | null
 }

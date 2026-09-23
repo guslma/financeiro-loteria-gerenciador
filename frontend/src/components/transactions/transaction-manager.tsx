@@ -40,7 +40,7 @@ import {
   fetchCategories,
   uploadReceipt,
 } from "@/lib/api-client"
-import type { Transaction } from "@/lib/api-client"
+import type { ReceiptExtraction, Transaction } from "@/lib/api-client"
 import { getReceiptUrl, getReceiptThumbUrl } from "@/lib/api-client"
 import { formatDatePtBR } from "@/lib/dates"
 import { categoriesMatch } from "@/lib/categories"
@@ -86,6 +86,8 @@ export function TransactionManager({ type }: TransactionManagerProps) {
   const [lightboxTransaction, setLightboxTransaction] = useState<Transaction | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [duplicateWarning, setDuplicateWarning] = useState<Transaction[] | null>(null)
+  const [receiptMeta, setReceiptMeta] = useState<{ barcode: string | null; payee: string | null } | null>(null)
+  const [categoryHint, setCategoryHint] = useState<string | null>(null)
 
   useEffect(() => {
     loadTransactions()
@@ -167,6 +169,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
         amount: amountValue,
         category: categoryToSave,
         ...(receiptPhotoPath ? { receiptPhotoPath } : {}),
+        ...(receiptMeta ? { barcode: receiptMeta.barcode, payee: receiptMeta.payee } : {}),
       }
 
       try {
@@ -198,17 +201,26 @@ export function TransactionManager({ type }: TransactionManagerProps) {
     setCustomCategory("")
     setShowCustomCategory(false)
     setReceiptFile(null)
+    setReceiptMeta(null)
+    setCategoryHint(null)
   }
 
   const handleReceiptExtracted = ({
     amountGuess,
     dateGuess,
     categoryGuess,
-  }: {
-    amountGuess: number | null
-    dateGuess: string | null
-    categoryGuess: string | null
-  }) => {
+    barcodeGuess,
+    payeeGuess,
+    categorySource,
+    categoryReason,
+  }: ReceiptExtraction) => {
+    setReceiptMeta({ barcode: barcodeGuess, payee: payeeGuess })
+    setCategoryHint(
+      categorySource === "historico" && categoryReason
+        ? `Categoria sugerida pelo histórico (${categoryReason})`
+        : null,
+    )
+
     setFormData((prev) => ({
       ...prev,
       amount:
@@ -236,6 +248,8 @@ export function TransactionManager({ type }: TransactionManagerProps) {
 
   const handleEdit = (transaction: Transaction) => {
     setEditingTransaction(transaction)
+    setReceiptMeta(null)
+    setCategoryHint(null)
     const isCustomCategory = !allCategories.slice(0, -1).includes(transaction.category)
 
     setFormData({
@@ -354,6 +368,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
                         value={formData.category}
                         onValueChange={(value) => {
                           setFormData({ ...formData, category: value })
+                          setCategoryHint(null)
                           setShowCustomCategory(value === "Nova")
                           if (value !== "Nova") {
                             setCustomCategory("")
@@ -371,6 +386,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
                           ))}
                         </SelectContent>
                       </Select>
+                      {categoryHint && <p className="text-xs text-muted-foreground">{categoryHint}</p>}
                       {showCustomCategory && (
                         <Input
                           placeholder="Digite a nova categoria"

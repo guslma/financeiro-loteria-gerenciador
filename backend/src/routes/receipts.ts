@@ -1,6 +1,8 @@
 import { Router } from "express"
 import multer from "multer"
 import crypto from "crypto"
+import { pool } from "../db"
+import { resolveReceiptCategory } from "../lib/category-history"
 import { extractReceiptDataServer } from "../lib/receipt-extraction"
 import { loadReceiptFile, loadReceiptThumbnail, saveReceipt } from "../lib/receipt-storage"
 import { logger } from "../lib/logger"
@@ -70,8 +72,24 @@ router.post("/extract", (req, res) => {
     }
 
     try {
-      const result = await extractReceiptDataServer(req.file.buffer)
-      res.json(result)
+      const { rows: categories } = await pool.query<{ name: string }>(
+        'SELECT name FROM "Category" WHERE type = $1 ORDER BY name',
+        ["despesa"],
+      )
+      const categoryNames = categories.map((c) => c.name)
+      const result = await extractReceiptDataServer(req.file.buffer, categoryNames)
+      const suggestion = await resolveReceiptCategory(pool, categoryNames, {
+        category: result.categoryGuess,
+        barcode: result.barcodeGuess,
+        payee: result.payeeGuess,
+        amount: result.amountGuess,
+      })
+      res.json({
+        ...result,
+        categoryGuess: suggestion.category,
+        categorySource: suggestion.source,
+        categoryReason: suggestion.reason,
+      })
     } catch (error) {
       logger.error({ error }, "Erro ao extrair dados do comprovante")
       res.status(502).json({ error: "Não foi possível ler os dados do comprovante" })
