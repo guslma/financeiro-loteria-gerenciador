@@ -15,9 +15,8 @@ services:
       APP_JWT_SECRET: ${APP_JWT_SECRET:-dev-secret-troque-em-producao}
       SESSION_VERSION: ${SESSION_VERSION:-1}
       STORAGE_ENCRYPTION_KEY: ${STORAGE_ENCRYPTION_KEY:-}
-      OCR_SERVICE_URL: http://ocr:8000
       OLLAMA_URL: ${OLLAMA_URL:-http://192.168.1.10:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5vl:3b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:31b-cloud}
     volumes:
       - ./backend:/app/backend
       - /app/backend/node_modules
@@ -25,18 +24,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      ocr:
-        condition: service_started
-    restart: unless-stopped
-
-  ocr:
-    build:
-      context: services/ocr
-    platform: linux/amd64
-    ports:
-      - "8001:8000"
-    volumes:
-      - ocr-models-dev:/root/.paddleocr
     restart: unless-stopped
 
   frontend:
@@ -73,4 +60,3 @@ services:
 
 volumes:
   db-dev:
-  ocr-models-dev:

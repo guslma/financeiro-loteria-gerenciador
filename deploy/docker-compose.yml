@@ -13,9 +13,8 @@ services:
       APP_JWT_SECRET: TROQUE_ESTA_CHAVE_SECRETA
       SESSION_VERSION: 1
       STORAGE_ENCRYPTION_KEY: TROQUE_ESTA_CHAVE_CRIPTOGRAFIA
-      OCR_SERVICE_URL: http://ocr:8000
       OLLAMA_URL: http://192.168.1.10:11434
-      OLLAMA_MODEL: qwen2.5vl:3b
+      OLLAMA_MODEL: gemma4:31b-cloud
       # Só necessário se você expõe o app via um reverse proxy que roda em
       # --network host na frente do container (ex.: cloudflared do Cloudflare
       # Tunnel). Coloque o IP do host na LAN. Sem isso, o app só confia em
@@ -26,23 +25,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      ocr:
-        condition: service_started
     networks:
       - gestor-net
     restart: unless-stopped
     labels:
       icon: "https://cdn.jsdelivr.net/gh/guslma/financeiro-loteria-gerenciador@v1.0.0/frontend/public/icon-512x512.png"
-
-  ocr:
-    container_name: gestor-de-loterias-ocr
-    image: guslma/gestor-de-loterias-ocr:latest
-    platform: linux/amd64
-    volumes:
-      - /DATA/AppData/gestor-de-loterias/ocr-models:/root/.paddleocr
-    networks:
-      - gestor-net
-    restart: unless-stopped
 
   postgres:
     container_name: gestor-de-loterias-postgres

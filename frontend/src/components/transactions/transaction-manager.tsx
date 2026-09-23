@@ -204,7 +204,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
     }
   }
 
-  // Se a categoria sugerida pelo OCR já existe (ignorando maiúsculas/minúsculas),
+  // Se a categoria sugerida pela IA já existe (ignorando maiúsculas/minúsculas),
   // seleciona ela; senão seleciona "Nova" e deixa o nome sugerido pré-preenchido
   // para o usuário confirmar — nunca cria a categoria sem revisão.
   const resolveCategoryForGuess = (categoryGuess: string) => {
