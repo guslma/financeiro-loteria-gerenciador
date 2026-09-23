@@ -11,6 +11,12 @@ const typeSchema = z.enum(["receita", "despesa"])
 const TRANSACTION_DESC_MAX = 500
 const CATEGORY_NAME_MAX = 100
 const PHOTO_PATH_MAX = 500
+const PAYEE_MAX = 200
+
+// Código de barras e beneficiário vêm da leitura do comprovante pela IA e
+// alimentam a sugestão de categoria de comprovantes futuros.
+const barcodeSchema = z.string().regex(/^\d{44,48}$/).nullable().optional()
+const payeeSchema = z.string().trim().max(PAYEE_MAX).nullable().optional()
 
 const createTransactionSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -19,6 +25,8 @@ const createTransactionSchema = z.object({
   type: typeSchema,
   category: z.string().trim().min(1).max(CATEGORY_NAME_MAX),
   receiptPhotoPath: z.string().trim().min(1).max(PHOTO_PATH_MAX).optional(),
+  barcode: barcodeSchema,
+  payee: payeeSchema,
 })
 
 const updateTransactionSchema = z.object({
@@ -27,6 +35,8 @@ const updateTransactionSchema = z.object({
   amount: z.number().positive(),
   category: z.string().trim().min(1).max(CATEGORY_NAME_MAX),
   receiptPhotoPath: z.string().trim().min(1).max(PHOTO_PATH_MAX).optional(),
+  barcode: barcodeSchema,
+  payee: payeeSchema,
 })
 
 interface TransactionRow {
@@ -101,13 +111,13 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: parsed.error.flatten() })
   }
 
-  const { date, description, amount, type, category, receiptPhotoPath } = parsed.data
+  const { date, description, amount, type, category, receiptPhotoPath, barcode, payee } = parsed.data
   const categoryId = await resolveCategoryId(pool, category, type)
 
   const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO "Transaction" (date, description, amount, type, "categoryId", "receiptPhotoPath")
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-    [date, description, amount, type, categoryId, receiptPhotoPath ?? null],
+    `INSERT INTO "Transaction" (date, description, amount, type, "categoryId", "receiptPhotoPath", barcode, payee)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+    [date, description, amount, type, categoryId, receiptPhotoPath ?? null, barcode ?? null, payee || null],
   )
   const { rows: full } = await pool.query<TransactionRow>(`${SELECT_WITH_CATEGORY} WHERE t.id = $1`, [rows[0].id])
   res.status(201).json(serializeTransaction(full[0]))
@@ -129,15 +139,18 @@ router.put("/:id", async (req, res) => {
     return res.status(404).json({ error: "Transação não encontrada" })
   }
 
-  const { date, description, amount, category, receiptPhotoPath } = parsed.data
+  const { date, description, amount, category, receiptPhotoPath, barcode, payee } = parsed.data
   const categoryId = await resolveCategoryId(pool, category, existing.type as "receita" | "despesa")
 
+  // Código de barras e beneficiário só mudam quando um comprovante novo é
+  // lido; editar só o valor ou a categoria não apaga os já gravados.
   await pool.query(
     `UPDATE "Transaction"
      SET date = $1, description = $2, amount = $3, "categoryId" = $4,
-         "receiptPhotoPath" = COALESCE($5, "receiptPhotoPath"), "updatedAt" = now()
-     WHERE id = $6`,
-    [date, description, amount, categoryId, receiptPhotoPath ?? null, id],
+         "receiptPhotoPath" = COALESCE($5, "receiptPhotoPath"),
+         barcode = COALESCE($6, barcode), payee = COALESCE($7, payee), "updatedAt" = now()
+     WHERE id = $8`,
+    [date, description, amount, categoryId, receiptPhotoPath ?? null, barcode ?? null, payee || null, id],
   )
 
   if (receiptPhotoPath && existing.receiptPhotoPath && existing.receiptPhotoPath !== receiptPhotoPath) {
