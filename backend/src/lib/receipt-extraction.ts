@@ -1,14 +1,17 @@
+import sharp from "sharp"
 import { z } from "zod"
 
-const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL ?? "http://localhost:8001"
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434"
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5vl:3b"
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "gemma4:31b-cloud"
+
+// Comprovantes fotografados pelo celular passam fácil de 4000px; reduzimos
+// pra diminuir o payload enviado ao modelo sem perder legibilidade do texto.
+const MAX_IMAGE_DIMENSION = 2000
 
 export interface ReceiptExtraction {
   amountGuess: number | null
   dateGuess: string | null
   categoryGuess: string | null
-  rawText: string
 }
 
 const llmResultSchema = z.object({
@@ -20,64 +23,50 @@ const llmResultSchema = z.object({
   category: z.string().nullable(),
 })
 
-async function extractText(buffer: Buffer): Promise<string> {
-  const formData = new FormData()
-  formData.append("file", new Blob([buffer]), "receipt.jpg")
-
-  const response = await fetch(`${OCR_SERVICE_URL}/extract`, { method: "POST", body: formData })
-  if (!response.ok) throw new Error(`Erro no serviço de OCR: ${response.status}`)
-
-  const { text } = (await response.json()) as { text: string }
-  return text
+// O Ollama só decodifica JPEG/PNG, então normalizamos qualquer upload
+// (inclusive WebP) para JPEG antes de enviar.
+async function toJpegBase64(buffer: Buffer): Promise<string> {
+  const jpeg = await sharp(buffer)
+    .rotate()
+    .resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION, { fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 90 })
+    .toBuffer()
+  return jpeg.toString("base64")
 }
 
-// Em vez da extração baseada em regex (frontend/src/lib/receipt-ocr.ts), pede
-// pro modelo interpretar o texto bruto do OCR — mais robusto a layouts de
-// comprovante que a regex não cobre, ao custo de depender de um LLM externo
-// rodando no servidor zimaos.
-//
-// O exemplo (few-shot) abaixo é necessário: sem ele, o qwen2.5vl:3b
-// frequentemente retorna "amount: null" mesmo com o valor claramente presente
-// no texto — pedir os 3 campos de uma vez sem exemplo confunde o modelo
-// nesse campo especificamente (testado manualmente contra o Ollama).
-async function interpretWithOllama(rawText: string): Promise<z.infer<typeof llmResultSchema>> {
-  const prompt = `Extraia os dados do texto de um comprovante de pagamento (lotérica brasileira) abaixo e responda em JSON.
+// O modelo (com visão) lê a imagem do comprovante diretamente e devolve os
+// campos já interpretados — sem etapa separada de OCR.
+async function interpretWithOllama(imageBase64: string): Promise<z.infer<typeof llmResultSchema>> {
+  const prompt = `A imagem é um comprovante de pagamento (lotérica brasileira). Extraia:
+- amount: o valor pago, como número decimal (ex.: 1483.80)
+- date: a data do pagamento (não a de vencimento), no formato YYYY-MM-DD
+- category: o tipo de guia/pagamento em texto curto (ex.: "DAS Simples", "FGTS", "GPS", "DARF")
 
-Exemplo:
-Texto: "VALOR: R$ 250,00\nDATA: 01/02/2026\nGPS"
-Resposta: {"amount": 250.00, "date": "2026-02-01", "category": "GPS"}
-
-Agora faça o mesmo para este texto:
-"""
-${rawText}
-"""
+Use null para qualquer campo que não esteja legível na imagem.
 
 Responda só com o JSON: {"amount": <número decimal ou null>, "date": <YYYY-MM-DD ou null>, "category": <texto curto ou null>}`
 
   const response = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: OLLAMA_MODEL, prompt, stream: false, format: "json" }),
+    body: JSON.stringify({ model: OLLAMA_MODEL, prompt, images: [imageBase64], stream: false, format: "json" }),
   })
   if (!response.ok) throw new Error(`Erro ao consultar o Ollama: ${response.status}`)
 
   const { response: raw } = (await response.json()) as { response: string }
-  const parsed = llmResultSchema.safeParse(JSON.parse(raw))
+  // Modelos cloud (ex.: gemma4:31b-cloud) ignoram `format: "json"` e embrulham
+  // a resposta em ```json ... ```, então removemos a cerca antes do parse.
+  const json = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")
+  const parsed = llmResultSchema.safeParse(JSON.parse(json))
   if (!parsed.success) throw new Error("Resposta do modelo em formato inesperado")
   return parsed.data
 }
 
 export async function extractReceiptDataServer(buffer: Buffer): Promise<ReceiptExtraction> {
-  const rawText = await extractText(buffer)
-  if (!rawText.trim()) {
-    return { amountGuess: null, dateGuess: null, categoryGuess: null, rawText: "" }
-  }
-
-  const llmResult = await interpretWithOllama(rawText)
+  const llmResult = await interpretWithOllama(await toJpegBase64(buffer))
   return {
     amountGuess: llmResult.amount,
     dateGuess: llmResult.date,
     categoryGuess: llmResult.category,
-    rawText,
   }
 }

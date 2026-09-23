@@ -16,26 +16,14 @@ services:
       APP_JWT_SECRET: ${APP_JWT_SECRET}
       SESSION_VERSION: ${SESSION_VERSION:-1}
       STORAGE_ENCRYPTION_KEY: ${STORAGE_ENCRYPTION_KEY:-}
-      OCR_SERVICE_URL: http://ocr:8000
       OLLAMA_URL: ${OLLAMA_URL:-http://192.168.1.10:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5vl:3b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:31b-cloud}
       TRUSTED_PROXY_IP: ${TRUSTED_PROXY_IP:-}
     volumes:
       - uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
-      ocr:
-        condition: service_started
-    restart: unless-stopped
-
-  ocr:
-    image: guslma/gestor-de-loterias-ocr:latest
-    build:
-      context: services/ocr
-    platform: linux/amd64
-    volumes:
-      - ocr-models:/root/.paddleocr
     restart: unless-stopped
 
   postgres:
@@ -58,4 +46,3 @@ services:
 volumes:
   db:
   uploads:
-  ocr-models:

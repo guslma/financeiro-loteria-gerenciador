@@ -48,7 +48,6 @@ guarda as informações. Conecte-se via **SSH** no servidor e rode:
 ```bash
 mkdir -p /DATA/AppData/gestor-de-loterias/postgres
 mkdir -p /DATA/AppData/gestor-de-loterias/uploads
-mkdir -p /DATA/AppData/gestor-de-loterias/ocr-models
 chown -R 70:70 /DATA/AppData/gestor-de-loterias/postgres
 ```
 
@@ -147,7 +146,6 @@ Tudo fica em `/DATA/AppData/gestor-de-loterias/`:
 |---|---|
 | `postgres/` | Banco de dados completo (transações, categorias, etc.) |
 | `uploads/` | Fotos de comprovantes que você tirou |
-| `ocr-models/` | Modelos de reconhecimento de texto (baixados na primeira vez) |
 
 > **Apagar essas pastas = perder tudo permanentemente.** Faça backup
 > copiando a pasta `postgres/` de vez em quando.
@@ -193,7 +191,7 @@ fazer nada. Se quiser usar um ícone personalizado, edite a linha `icon:` no
 |---|---|---|
 | App reinicia sem parar | Permissão da pasta do Postgres | Rode o `chown -R 70:70` do passo 3 |
 | Tela de login não aparece | Variáveis de ambiente não configuradas | Edite o app no ZimaOS e adicione `APP_USERNAME`, `APP_PASSWORD`, `APP_JWT_SECRET` |
-| OCR não funciona | Servidor Ollama desligado ou IP errado | Verifique se o Ollama está rodando e ajuste `OLLAMA_URL` |
+| Leitura do comprovante não funciona | Servidor Ollama desligado ou IP errado | Verifique se o Ollama está rodando e ajuste `OLLAMA_URL` |
 | "Muitas tentativas de login" | Errou a senha 5 vezes em 1 minuto | Espere 1 minuto e tente novamente |
 | Fotos de comprovante não carregam | Chave de criptografia foi alterada | Se trocou `STORAGE_ENCRYPTION_KEY` ou `APP_JWT_SECRET`, as fotos antigas não podem ser descriptografadas. Restaure a chave anterior |
 | Erro ao fazer upload de foto | Imagem muito grande ou formato não suportado | O app aceita JPEG, PNG e WebP até 10MB. Tire a foto numa resolução normal do celular |

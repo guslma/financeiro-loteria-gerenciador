@@ -126,7 +126,6 @@ export interface ReceiptExtraction {
   amountGuess: number | null
   dateGuess: string | null
   categoryGuess: string | null
-  rawText: string
 }
 
 export function extractReceipt(file: File): Promise<ReceiptExtraction> {

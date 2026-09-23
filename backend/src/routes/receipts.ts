@@ -54,7 +54,7 @@ router.post("/", (req, res) => {
   })
 })
 
-// ── Extrair dados (OCR) ─────────────────────────────────────────────
+// ── Extrair dados (IA) ──────────────────────────────────────────────
 router.post("/extract", (req, res) => {
   upload.single("file")(req, res, async (err) => {
     if (err) {
