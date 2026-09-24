@@ -1,9 +1,9 @@
 import type React from "react"
 
-import { useState } from "react"
-import { Input } from "@/components/ui/input"
+import { useRef, useState } from "react"
+import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Loader2 } from "lucide-react"
+import { Loader2, ScanLine, Sparkles } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { extractReceipt, getReceiptUrl } from "@/lib/api-client"
 import type { ReceiptExtraction } from "@/lib/api-client"
@@ -19,9 +19,14 @@ export function ReceiptCapture({ onExtracted, onFileSelected, existingPhotoUrl }
     existingPhotoUrl ? getReceiptUrl(existingPhotoUrl) : null,
   )
   const [isProcessing, setIsProcessing] = useState(false)
+  // Input escondido acionado pelo botão: no celular abre a câmera direto
+  // (capture); no computador abre o seletor de arquivos.
+  const cameraInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    // Limpa o input pra permitir escolher a mesma foto de novo depois.
+    e.target.value = ""
     if (!file) return
 
     setPreviewUrl(URL.createObjectURL(file))
@@ -50,28 +55,58 @@ export function ReceiptCapture({ onExtracted, onFileSelected, existingPhotoUrl }
     }
   }
 
+  const openCamera = () => cameraInputRef.current?.click()
+
   return (
     <div className="space-y-2">
-      <Label htmlFor="receipt-photo">Foto do comprovante (opcional)</Label>
-      <Input
-        id="receipt-photo"
+      <Label>Comprovante (opcional)</Label>
+
+      <input
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
         onChange={handleFileChange}
-        disabled={isProcessing}
+        className="hidden"
+        aria-hidden="true"
+        tabIndex={-1}
       />
-      {isProcessing && (
-        <p className="text-sm text-muted-foreground flex items-center gap-2">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Lendo comprovante...
-        </p>
+
+      {previewUrl ? (
+        <div className="flex items-center gap-3 rounded-lg border p-3">
+          <div className="relative shrink-0">
+            <img src={previewUrl} alt="Comprovante" className="h-20 w-20 rounded border object-cover" />
+            {isProcessing && (
+              <div className="absolute inset-0 flex items-center justify-center rounded bg-background/70">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1 space-y-2">
+            <p className="text-sm font-medium">
+              {isProcessing ? "Lendo comprovante..." : "Comprovante anexado"}
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={openCamera} disabled={isProcessing}>
+              <ScanLine />
+              Escanear novamente
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2 rounded-lg border border-dashed p-3">
+          <Button type="button" variant="outline" className="h-12 w-full text-base" onClick={openCamera}>
+            <ScanLine className="!size-5" />
+            Escanear comprovante
+          </Button>
+          <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+            <Sparkles className="h-3 w-3" />
+            A IA preenche valor, data e categoria pra você
+          </p>
+        </div>
       )}
-      {previewUrl && !isProcessing && (
-        <img src={previewUrl} alt="Comprovante" className="h-24 rounded border object-cover" />
-      )}
+
       <p className="text-xs text-muted-foreground">
-        O valor e a data lidos da foto são apenas uma sugestão — confira antes de salvar.
+        Os dados lidos da foto são apenas uma sugestão — confira antes de salvar.
       </p>
     </div>
   )
