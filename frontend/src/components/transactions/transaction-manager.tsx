@@ -218,7 +218,9 @@ export function TransactionManager({ type }: TransactionManagerProps) {
     setCategoryHint(
       categorySource === "historico" && categoryReason
         ? `Categoria sugerida pelo histórico (${categoryReason})`
-        : null,
+        : categorySource === "nova"
+          ? "Nenhuma categoria cadastrada corresponde — confira o nome da nova categoria"
+          : null,
     )
 
     setFormData((prev) => ({

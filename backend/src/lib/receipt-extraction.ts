@@ -1,6 +1,7 @@
 import sharp from "sharp"
 import { z } from "zod"
 import { normalizeBarcode } from "./barcode"
+import type { CategoryContext } from "./category-history"
 
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434"
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "gemma4:31b-cloud"
@@ -13,6 +14,7 @@ export interface ReceiptExtraction {
   amountGuess: number | null
   dateGuess: string | null
   categoryGuess: string | null
+  newCategoryGuess: string | null
   barcodeGuess: string | null
   payeeGuess: string | null
 }
@@ -24,6 +26,7 @@ const llmResultSchema = z.object({
     .transform((value) => (value === null ? null : Number(value))),
   date: z.string().nullable(),
   category: z.string().nullable(),
+  newCategory: z.string().nullable().optional(),
   barcode: z.string().nullable().optional(),
   payee: z.string().nullable().optional(),
 })
@@ -42,29 +45,45 @@ async function toJpegBase64(buffer: Buffer): Promise<string> {
 // O modelo (com visão) lê a imagem do comprovante diretamente e devolve os
 // campos já interpretados — sem etapa separada de OCR.
 //
-// As categorias já cadastradas vão no prompt pra IA reaproveitar o nome
-// exato quando o pagamento se encaixa numa delas; quando ela não consegue,
-// a rota tenta achar a categoria no histórico (lib/category-history.ts)
-// usando o código de barras e o beneficiário lidos aqui.
+// A IA escolhe a categoria entre as já cadastradas (category) e só sugere
+// uma nova (newCategory) quando nenhuma tem relação com o pagamento. Os
+// exemplos de beneficiário → categoria vêm das despesas já registradas.
+// Quando ela não acerta, a rota ainda tenta o histórico
+// (lib/category-history.ts) usando o código de barras e o beneficiário.
 async function interpretWithOllama(
   imageBase64: string,
-  existingCategories: string[],
+  context: CategoryContext,
 ): Promise<z.infer<typeof llmResultSchema>> {
-  const categoryHint =
-    existingCategories.length > 0
-      ? `\n\nCategorias já cadastradas: ${existingCategories.map((name) => `"${name}"`).join(", ")}. Se o pagamento se encaixar claramente em uma delas, use exatamente esse nome em category. Se não tiver certeza, use o tipo de guia/pagamento.`
+  const categoryList =
+    context.categories.length > 0
+      ? context.categories.map((name) => `- "${name}"`).join("\n")
+      : "(nenhuma cadastrada)"
+  const examples =
+    context.examples.length > 0
+      ? `\n\nPagamentos já registrados (beneficiário → categoria usada):\n${context.examples
+          .map(({ payee, category }) => `- ${payee} → "${category}"`)
+          .join("\n")}`
       : ""
 
   const prompt = `A imagem é um comprovante de pagamento (lotérica brasileira). Extraia:
 - amount: o valor pago, como número decimal (ex.: 1483.80)
 - date: a data do pagamento (não a de vencimento), no formato YYYY-MM-DD
-- category: o tipo de guia/pagamento em texto curto (ex.: "DAS Simples", "FGTS", "GPS", "DARF")
 - barcode: a linha digitável ou o código de barras numérico, só os dígitos
-- payee: o nome do beneficiário, empresa ou órgão que recebeu o pagamento${categoryHint}
+- payee: o nome do beneficiário, empresa ou órgão que recebeu o pagamento
+- category: a categoria do pagamento, escolhida da lista abaixo
+- newCategory: só quando nenhuma categoria da lista tiver relação com o pagamento
+
+Categorias de despesa já cadastradas (da usada mais recentemente para a menos recente):
+${categoryList}${examples}
+
+Regras para category:
+- Use exatamente o nome de uma categoria da lista sempre que o pagamento tiver relação com ela, mesmo que o comprovante use outro nome. Exemplos: companhia de água/saneamento (Iguá, Deso, Sabesp...) → a categoria de água; distribuidora de energia (Energisa, Enel, Cemig...) → a categoria de energia; guia DAS/Simples Nacional → a categoria do Simples; DARF → a categoria DARF; honorários de escritório de contabilidade → a categoria do contador; operadora de telefone/internet → a categoria de internet ou telefone.
+- Se mais de uma categoria da lista servir, use a que aparece primeiro (a usada mais recentemente).
+- Só quando nenhuma categoria da lista tiver relação: category = null e newCategory = um nome curto e genérico para a categoria nova (ex.: "Material de Escritório"), não o nome da empresa.
 
 Use null para qualquer campo que não esteja legível na imagem.
 
-Responda só com o JSON: {"amount": <número decimal ou null>, "date": <YYYY-MM-DD ou null>, "category": <texto curto ou null>, "barcode": <dígitos ou null>, "payee": <texto curto ou null>}`
+Responda só com o JSON: {"amount": <número decimal ou null>, "date": <YYYY-MM-DD ou null>, "barcode": <dígitos ou null>, "payee": <texto curto ou null>, "category": <nome da lista ou null>, "newCategory": <texto curto ou null>}`
 
   const response = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: "POST",
@@ -82,15 +101,13 @@ Responda só com o JSON: {"amount": <número decimal ou null>, "date": <YYYY-MM-
   return parsed.data
 }
 
-export async function extractReceiptDataServer(
-  buffer: Buffer,
-  existingCategories: string[],
-): Promise<ReceiptExtraction> {
-  const llmResult = await interpretWithOllama(await toJpegBase64(buffer), existingCategories)
+export async function extractReceiptDataServer(buffer: Buffer, context: CategoryContext): Promise<ReceiptExtraction> {
+  const llmResult = await interpretWithOllama(await toJpegBase64(buffer), context)
   return {
     amountGuess: llmResult.amount,
     dateGuess: llmResult.date,
-    categoryGuess: llmResult.category,
+    categoryGuess: llmResult.category?.trim() || null,
+    newCategoryGuess: llmResult.newCategory?.trim() || null,
     barcodeGuess: normalizeBarcode(llmResult.barcode),
     // Mesmo limite do campo payee na rota de transações.
     payeeGuess: llmResult.payee?.trim().slice(0, 200) || null,
