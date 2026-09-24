@@ -1,7 +1,9 @@
 import { barcodeIssuerKey } from "./barcode"
-import { categoriesMatch, type Queryable } from "./categories"
+import type { Queryable } from "./categories"
 
-export type CategorySource = "ia" | "historico"
+// "nova" quando nenhuma categoria cadastrada corresponde e a IA sugeriu o
+// nome de uma categoria a criar (o usuário confirma antes de salvar).
+export type CategorySource = "ia" | "historico" | "nova"
 
 export interface CategorySuggestion {
   category: string | null
@@ -21,14 +23,27 @@ type HistoryRow = {
 // isso cobre anos de dados sem pesar na consulta.
 const HISTORY_LIMIT = 2000
 
-export function normalizePayee(payee: string | null | undefined): string | null {
-  const normalized = (payee ?? "")
+// Compara nomes ignorando acentos, maiúsculas e pontuação: "Água" = "AGUA".
+export function normalizeText(text: string | null | undefined): string | null {
+  const normalized = (text ?? "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
   return normalized || null
+}
+
+// Sufixos societários que variam entre comprovantes da mesma empresa.
+const COMPANY_SUFFIXES = new Set(["sa", "ltda", "me", "epp", "eireli", "cia"])
+
+// Como normalizeText, mas junta abreviações ("S.A.", "S/A" → "sa"), trata
+// "&" como "e" e tira sufixos societários: "IGUÁ Saneamento S.A." =
+// "Igua Saneamento".
+export function normalizePayee(payee: string | null | undefined): string | null {
+  const words = normalizeText((payee ?? "").replace(/[./-]/g, "").replace(/&/g, " e "))?.split(" ") ?? []
+  while (words.length > 1 && COMPANY_SUFFIXES.has(words[words.length - 1])) words.pop()
+  return words.join(" ") || null
 }
 
 // Categoria mais usada entre os lançamentos parecidos. Em caso de empate
@@ -77,17 +92,63 @@ export function suggestFromHistory(
   return null
 }
 
-// Se a IA escolheu uma categoria que já existe, usa ela. Senão, tenta achar
-// no histórico uma despesa parecida e reaproveita a categoria dela; se nada
-// bater, devolve o palpite da IA como sugestão de categoria nova.
+export interface CategoryContext {
+  // Categorias de despesa da usada mais recentemente pra menos recente, pra
+  // IA preferir a atual quando houver duas parecidas (ex.: "DAS Simples" e
+  // "SIMPLES NACIONAL").
+  categories: string[]
+  // Beneficiários já registrados e a última categoria usada pra cada um.
+  examples: { payee: string; category: string }[]
+}
+
+const EXAMPLES_LIMIT = 50
+
+export async function loadCategoryContext(client: Queryable): Promise<CategoryContext> {
+  const { rows: categories } = await client.query<{ name: string }>(
+    `SELECT c.name
+     FROM "Category" c
+     LEFT JOIN "Transaction" t ON t."categoryId" = c.id
+     WHERE c.type = 'despesa'
+     GROUP BY c.id, c.name
+     ORDER BY MAX(t.date) DESC NULLS LAST, c.name`,
+  )
+  const { rows: examples } = await client.query<{ payee: string; category: string }>(
+    `SELECT DISTINCT ON (lower(t.payee)) t.payee, c.name AS category
+     FROM "Transaction" t
+     JOIN "Category" c ON c.id = t."categoryId"
+     WHERE t.type = 'despesa' AND t.payee IS NOT NULL
+     ORDER BY lower(t.payee), t.date DESC, t."createdAt" DESC
+     LIMIT ${EXAMPLES_LIMIT}`,
+  )
+  return { categories: categories.map((c) => c.name), examples }
+}
+
+// Categoria cadastrada com o mesmo nome (ignorando acentos e maiúsculas).
+// A lista vem ordenada pelo uso mais recente, então vence a usada por último.
+export function matchExistingCategory(categories: string[], name: string | null): string | null {
+  const target = normalizeText(name)
+  if (!target) return null
+  return categories.find((category) => normalizeText(category) === target) ?? null
+}
+
+// Só sugere categoria nova quando nada corresponde: primeiro a escolha da
+// IA entre as cadastradas, depois despesas parecidas no histórico e, por
+// último, o nome de categoria nova que a IA sugeriu.
 export async function resolveReceiptCategory(
   client: Queryable,
-  existingCategories: string[],
-  receipt: { category: string | null; barcode: string | null; payee: string | null; amount: number | null },
+  categories: string[],
+  receipt: {
+    category: string | null
+    newCategory: string | null
+    barcode: string | null
+    payee: string | null
+    amount: number | null
+  },
 ): Promise<CategorySuggestion> {
-  const existing = receipt.category
-    ? existingCategories.find((name) => categoriesMatch(name, receipt.category!))
-    : undefined
+  // newCategory também é conferido: a IA às vezes "sugere" um nome que já
+  // existe com outra grafia ("Agua" vs "Água").
+  const existing =
+    matchExistingCategory(categories, receipt.category) ?? matchExistingCategory(categories, receipt.newCategory)
   if (existing) return { category: existing, source: "ia", reason: null }
 
   const { rows } = await client.query<HistoryRow>(
@@ -101,5 +162,6 @@ export async function resolveReceiptCategory(
   const fromHistory = suggestFromHistory(rows, receipt)
   if (fromHistory) return { category: fromHistory.category, source: "historico", reason: fromHistory.reason }
 
-  return { category: receipt.category, source: receipt.category ? "ia" : null, reason: null }
+  const suggested = receipt.newCategory ?? receipt.category
+  return { category: suggested, source: suggested ? "nova" : null, reason: null }
 }

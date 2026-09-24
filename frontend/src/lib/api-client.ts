@@ -138,9 +138,10 @@ export interface ReceiptExtraction {
   categoryGuess: string | null
   barcodeGuess: string | null
   payeeGuess: string | null
-  // "historico" quando a categoria veio de uma despesa antiga parecida;
-  // categoryReason diz qual critério bateu (ex.: "mesmo beneficiário").
-  categorySource: "ia" | "historico" | null
+  // "historico" quando a categoria veio de uma despesa antiga parecida
+  // (categoryReason diz qual critério bateu, ex.: "mesmo beneficiário");
+  // "nova" quando nenhuma categoria cadastrada corresponde.
+  categorySource: "ia" | "historico" | "nova" | null
   categoryReason: string | null
 }
 

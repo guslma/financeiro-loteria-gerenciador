@@ -2,7 +2,7 @@ import { Router } from "express"
 import multer from "multer"
 import crypto from "crypto"
 import { pool } from "../db"
-import { resolveReceiptCategory } from "../lib/category-history"
+import { loadCategoryContext, resolveReceiptCategory } from "../lib/category-history"
 import { extractReceiptDataServer } from "../lib/receipt-extraction"
 import { loadReceiptFile, loadReceiptThumbnail, saveReceipt } from "../lib/receipt-storage"
 import { logger } from "../lib/logger"
@@ -72,14 +72,11 @@ router.post("/extract", (req, res) => {
     }
 
     try {
-      const { rows: categories } = await pool.query<{ name: string }>(
-        'SELECT name FROM "Category" WHERE type = $1 ORDER BY name',
-        ["despesa"],
-      )
-      const categoryNames = categories.map((c) => c.name)
-      const result = await extractReceiptDataServer(req.file.buffer, categoryNames)
-      const suggestion = await resolveReceiptCategory(pool, categoryNames, {
+      const context = await loadCategoryContext(pool)
+      const { newCategoryGuess, ...result } = await extractReceiptDataServer(req.file.buffer, context)
+      const suggestion = await resolveReceiptCategory(pool, context.categories, {
         category: result.categoryGuess,
+        newCategory: newCategoryGuess,
         barcode: result.barcodeGuess,
         payee: result.payeeGuess,
         amount: result.amountGuess,
