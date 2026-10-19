@@ -10,7 +10,7 @@ services:
       org.opencontainers.image.title: "Gestor de Loterias"
       org.opencontainers.image.description: "Gestão financeira para lotéricas"
     environment:
-      DATABASE_URL: postgresql://gestor:${POSTGRES_PASSWORD:-gestor}@postgres:5432/gestor
+      DATABASE_URL: postgresql://gestor:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}@postgres:5432/gestor
       APP_USERNAME: ${APP_USERNAME}
       APP_PASSWORD: ${APP_PASSWORD}
       APP_JWT_SECRET: ${APP_JWT_SECRET}
@@ -28,11 +28,13 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    # Só acessível pelo próprio computador: sem isso qualquer aparelho da
+    # rede conseguiria conectar direto no banco, sem passar pelo login do app.
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     environment:
       POSTGRES_USER: gestor
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gestor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}
       POSTGRES_DB: gestor
     volumes:
       - db:/var/lib/postgresql/data
