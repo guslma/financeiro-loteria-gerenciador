@@ -13,7 +13,7 @@ docker compose up -d
 
 Acesse em `http://localhost:3000`. Os dados (Postgres e fotos de comprovante) ficam em volumes Docker nomeados, sobrevivem a `docker compose down` (sem `-v`) e a atualizações de imagem.
 
-Por padrão isso baixa a imagem publicada no Docker Hub como [`guslma/gestor-de-loterias`](https://hub.docker.com/r/guslma/gestor-de-loterias). Pra buildar a partir do código local em vez de baixar do Hub, use `docker compose up -d --build`. Veja [deploy/README.md](deploy/README.md) para instalação em servidores ZimaOS/CasaOS.
+Por padrão isso baixa a imagem publicada no GitHub como [`ghcr.io/guslma/gestor-de-loterias`](https://github.com/guslma/financeiro-loteria-gerenciador/pkgs/container/gestor-de-loterias), que funciona em computadores comuns (amd64) e em ARM de 64 bits, como o Raspberry Pi. A imagem é gerada sozinha a cada atualização do `main`. Pra buildar a partir do código local em vez de baixar, use `docker compose up -d --build`. Veja [deploy/README.md](deploy/README.md) para instalação em servidores ZimaOS/CasaOS.
 
 ## Desenvolvimento
 
@@ -47,7 +47,7 @@ React + TypeScript + Vite + Tailwind (frontend) · Express + TypeScript (backend
 - `database/migrations/` — schema do Postgres (SQL puro)
 - `assets/` — arquivos-fonte de design (ícones)
 - `docs/` — notas de arquitetura
-- `deploy/` — compose oficial para instalação via imagem do Docker Hub (ZimaOS/CasaOS)
+- `deploy/` — compose oficial para instalação via imagem do GitHub (ZimaOS/CasaOS), com atualização automática
 
 ## Licença
 

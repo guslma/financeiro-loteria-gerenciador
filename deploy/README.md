@@ -78,6 +78,13 @@ Use o `APP_USERNAME` e `APP_PASSWORD` que você definiu no passo 2.
 Seus dados (transações, categorias, comprovantes salvos) ficam em pastas
 especiais fora do container — elas **não são apagadas** quando você atualiza.
 
+### Automático (padrão)
+
+O `docker-compose.yml` deste guia já vem com o serviço `updater`. A cada 6
+horas ele confere se o GitHub publicou uma imagem nova e, se sim, baixa e
+reinicia só o app. Toda atualização do branch `main` gera uma imagem nova
+automaticamente, então não precisa fazer nada.
+
 ### Pela interface do ZimaOS
 
 1. Vá no painel do ZimaOS → Apps → **Gestor de Loterias**
