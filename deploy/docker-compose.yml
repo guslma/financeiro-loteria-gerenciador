@@ -29,7 +29,7 @@ services:
       - gestor-net
     restart: unless-stopped
     labels:
-      icon: "https://cdn.jsdelivr.net/gh/guslma/financeiro-loteria-gerenciador@v1.0.0/frontend/public/icon-512x512.png"
+      icon: "https://cdn.jsdelivr.net/gh/guslma/gestor-de-loterias@v1.0.0/frontend/public/icon-512x512.png"
 
   postgres:
     container_name: gestor-de-loterias-postgres
@@ -81,7 +81,7 @@ x-casaos:
   author: self
   category: self
   hostname: ""
-  icon: "https://cdn.jsdelivr.net/gh/guslma/financeiro-loteria-gerenciador@v1.0.0/frontend/public/icon-512x512.png"
+  icon: "https://cdn.jsdelivr.net/gh/guslma/gestor-de-loterias@v1.0.0/frontend/public/icon-512x512.png"
   index: /
   is_uncontrolled: false
   port_map: "3000"

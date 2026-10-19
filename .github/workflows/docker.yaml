@@ -7,6 +7,13 @@ on:
   push:
     branches:
       - main
+    # Changes only to docs or install files do not change the image
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "deploy/**"
+      - "docker-compose*.yml"
+      - ".env.example"
     tags:
       - "v*"
   workflow_dispatch:
