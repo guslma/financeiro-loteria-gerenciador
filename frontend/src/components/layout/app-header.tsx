@@ -47,6 +47,9 @@ export function AppHeader() {
           <span className="font-bold text-lg bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
             Gestor de Loterias
           </span>
+          <span className="text-xs text-muted-foreground" title="Versão do app">
+            v{__APP_VERSION__}
+          </span>
         </div>
 
         {/* Menu Desktop */}
