@@ -37,6 +37,17 @@ type Filters = {
   selectedMonth: number
 }
 
+// O relatório impresso é montado como string HTML; nomes de categoria vêm do
+// usuário, da planilha importada ou da IA e não podem virar marcação.
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 function filterTransactions(list: Transaction[], filters: Filters): Transaction[] {
   let filtered = [...list]
 
@@ -358,7 +369,7 @@ export default function Relatorios() {
         const total = (monthlyValues as number[]).reduce((sum, val) => sum + val, 0)
         htmlContent += `
           <tr class="receita-row">
-            <td class="category-cell">${category}</td>
+            <td class="category-cell">${escapeHtml(category)}</td>
             ${(monthlyValues as number[])
               .map(
                 (value) =>
@@ -408,7 +419,7 @@ export default function Relatorios() {
         const total = (monthlyValues as number[]).reduce((sum, val) => sum + val, 0)
         htmlContent += `
           <tr class="despesa-row">
-            <td class="category-cell">${category}</td>
+            <td class="category-cell">${escapeHtml(category)}</td>
             ${(monthlyValues as number[])
               .map(
                 (value) =>

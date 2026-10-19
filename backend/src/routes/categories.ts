@@ -1,9 +1,12 @@
 import { Router } from "express"
 import { z } from "zod"
 import { pool } from "../db"
+import { asyncHandler, requireUuidParam } from "../lib/async-handler"
 import { categoriesMatch, defaultCategories } from "../lib/categories"
 
 const router = Router()
+
+router.param("id", requireUuidParam)
 
 const typeSchema = z.enum(["receita", "despesa"])
 
@@ -25,7 +28,7 @@ interface CategoryRow {
   createdAt: string
 }
 
-router.get("/", async (req, res) => {
+router.get("/", asyncHandler(async (req, res) => {
   const parsedType = typeSchema.safeParse(req.query.type)
   if (!parsedType.success) {
     return res.status(400).json({ error: "type deve ser 'receita' ou 'despesa'" })
@@ -48,9 +51,9 @@ router.get("/", async (req, res) => {
   }
 
   res.json(categories)
-})
+}))
 
-router.post("/", async (req, res) => {
+router.post("/", asyncHandler(async (req, res) => {
   const parsed = createCategorySchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() })
@@ -67,9 +70,9 @@ router.post("/", async (req, res) => {
     type,
   ])
   res.status(201).json(rows[0])
-})
+}))
 
-router.put("/:id", async (req, res) => {
+router.put("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params
   const parsed = renameSchema.safeParse(req.body)
   if (!parsed.success) {
@@ -96,9 +99,9 @@ router.put("/:id", async (req, res) => {
     id,
   ])
   res.json(rows[0])
-})
+}))
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params
 
   const { rows: countRows } = await pool.query<{ count: string }>(
@@ -111,6 +114,6 @@ router.delete("/:id", async (req, res) => {
 
   await pool.query('DELETE FROM "Category" WHERE id = $1', [id])
   res.json({ ok: true })
-})
+}))
 
 export default router

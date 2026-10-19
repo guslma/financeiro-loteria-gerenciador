@@ -1,10 +1,13 @@
 import { Router } from "express"
 import { z } from "zod"
 import { pool } from "../db"
+import { asyncHandler, requireUuidParam } from "../lib/async-handler"
 import { resolveCategoryId } from "../lib/categories"
 import { deleteReceiptFile } from "../lib/receipt-storage"
 
 const router = Router()
+
+router.param("id", requireUuidParam)
 
 const typeSchema = z.enum(["receita", "despesa"])
 
@@ -68,7 +71,7 @@ function serializeTransaction(t: TransactionRow) {
   }
 }
 
-router.get("/", async (req, res) => {
+router.get("/", asyncHandler(async (req, res) => {
   const typeParam = req.query.type as string | undefined
   const year = req.query.year as string | undefined
   const month = req.query.month as string | undefined
@@ -103,9 +106,9 @@ router.get("/", async (req, res) => {
   }
 
   res.json(transactions.map(serializeTransaction))
-})
+}))
 
-router.post("/", async (req, res) => {
+router.post("/", asyncHandler(async (req, res) => {
   const parsed = createTransactionSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() })
@@ -121,9 +124,9 @@ router.post("/", async (req, res) => {
   )
   const { rows: full } = await pool.query<TransactionRow>(`${SELECT_WITH_CATEGORY} WHERE t.id = $1`, [rows[0].id])
   res.status(201).json(serializeTransaction(full[0]))
-})
+}))
 
-router.put("/:id", async (req, res) => {
+router.put("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params
   const parsed = updateTransactionSchema.safeParse(req.body)
   if (!parsed.success) {
@@ -159,9 +162,9 @@ router.put("/:id", async (req, res) => {
 
   const { rows: full } = await pool.query<TransactionRow>(`${SELECT_WITH_CATEGORY} WHERE t.id = $1`, [id])
   res.json(serializeTransaction(full[0]))
-})
+}))
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params
   const { rows: existingRows } = await pool.query<{ receiptPhotoPath: string | null }>(
     'SELECT "receiptPhotoPath" FROM "Transaction" WHERE id = $1',
@@ -170,6 +173,6 @@ router.delete("/:id", async (req, res) => {
   await pool.query('DELETE FROM "Transaction" WHERE id = $1', [id])
   await deleteReceiptFile(existingRows[0]?.receiptPhotoPath)
   res.json({ ok: true })
-})
+}))
 
 export default router
