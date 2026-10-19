@@ -1,6 +1,7 @@
 import { Router } from "express"
 import multer from "multer"
 import { pool } from "../db"
+import { asyncHandler } from "../lib/async-handler"
 import { resolveCategoryId } from "../lib/categories"
 import { parseBalancoWorkbook } from "../lib/import-balanco"
 
@@ -25,7 +26,7 @@ const upload = multer({
   },
 })
 
-router.post("/", upload.single("file"), async (req, res) => {
+router.post("/", upload.single("file"), asyncHandler(async (req, res) => {
   const dryRun = req.query.dryRun === "true"
 
   if (!req.file) {
@@ -92,6 +93,6 @@ router.post("/", upload.single("file"), async (req, res) => {
   }
 
   res.json({ imported, duplicates })
-})
+}))
 
 export default router

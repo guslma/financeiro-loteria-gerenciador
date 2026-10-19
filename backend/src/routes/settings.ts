@@ -1,6 +1,7 @@
 import { Router } from "express"
 import { z } from "zod"
 import { pool } from "../db"
+import { asyncHandler } from "../lib/async-handler"
 
 const router = Router()
 
@@ -18,11 +19,11 @@ async function getOrCreateSettings() {
   return created.rows[0]
 }
 
-router.get("/", async (_req, res) => {
+router.get("/", asyncHandler(async (_req, res) => {
   res.json(await getOrCreateSettings())
-})
+}))
 
-router.put("/", async (req, res) => {
+router.put("/", asyncHandler(async (req, res) => {
   const parsed = updateSettingsSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() })
@@ -34,6 +35,6 @@ router.put("/", async (req, res) => {
     [parsed.data.storeName, settings.id],
   )
   res.json(updated.rows[0])
-})
+}))
 
 export default router
