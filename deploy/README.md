@@ -207,4 +207,4 @@ fazer nada. Se quiser usar um ícone personalizado, edite a linha `icon:` no
 ---
 
 > Dúvidas? Abra uma issue em
-> [github.com/guslma/financeiro-loteria-gerenciador](https://github.com/guslma/financeiro-loteria-gerenciador)
+> [github.com/guslma/gestor-de-loterias](https://github.com/guslma/gestor-de-loterias)
