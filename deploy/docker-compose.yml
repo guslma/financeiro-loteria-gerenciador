@@ -3,7 +3,7 @@ name: gestor-de-loterias
 services:
   gestor-de-loterias:
     container_name: gestor-de-loterias
-    image: guslma/gestor-de-loterias:latest
+    image: ghcr.io/guslma/gestor-de-loterias:latest
     ports:
       - "3000:3000"
     environment:
@@ -50,6 +50,27 @@ services:
       gestor-net:
         aliases:
           - postgres
+    restart: unless-stopped
+
+  # A cada 6 horas baixa a imagem mais nova do GitHub e reinicia o app só se ela mudou.
+  # Não precisa de rede: quem baixa a imagem é o Docker do servidor.
+  updater:
+    container_name: gestor-de-loterias-updater
+    image: docker:27-cli
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          echo "$$(date) procurando uma imagem nova do Gestor de Loterias"
+          docker compose -p gestor-de-loterias -f /var/lib/casaos/apps/gestor-de-loterias/docker-compose.yml pull --quiet gestor-de-loterias &&
+            docker compose -p gestor-de-loterias -f /var/lib/casaos/apps/gestor-de-loterias/docker-compose.yml up -d --no-deps gestor-de-loterias
+          sleep 21600
+        done
+    network_mode: none
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/casaos/apps/gestor-de-loterias:/var/lib/casaos/apps/gestor-de-loterias:ro
     restart: unless-stopped
 
 networks:
