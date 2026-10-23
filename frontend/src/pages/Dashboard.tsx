@@ -7,7 +7,6 @@ import {
   ChevronRight,
   DollarSign,
   Download,
-  FileSpreadsheet,
   Minus,
   Percent,
   Plus,
@@ -36,7 +35,7 @@ import {
   wholeNumber,
   type Period,
 } from "@/lib/finance"
-import { exportExcel, printReport } from "@/lib/report-export"
+import { printReport } from "@/lib/report-export"
 import { cn } from "@/lib/utils"
 
 const GOOD = "text-emerald-700"
@@ -238,9 +237,6 @@ export default function Dashboard() {
           <Link to="/importar" className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-slate-300 bg-white px-3.5 font-medium hover:bg-slate-50">
             <Download className="h-4 w-4" /> Importar planilha
           </Link>
-          <button type="button" onClick={() => exportExcel(transactions, period)} className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-slate-300 bg-white px-3.5 font-medium hover:bg-slate-50">
-            <FileSpreadsheet className="h-4 w-4" /> Exportar Excel
-          </button>
           <button
             type="button"
             onClick={() => {

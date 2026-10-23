@@ -1,4 +1,3 @@
-import * as XLSX from "xlsx"
 import type { Transaction } from "@/lib/api-client"
 import { formatDatePtBR } from "@/lib/dates"
 import {
@@ -164,40 +163,3 @@ export function printReport(list: Transaction[], period: Period, storeName: stri
   win.onload = () => setTimeout(() => win.print(), 250)
   return true
 }
-
-/** Baixa uma planilha com os lançamentos do período e o resumo por categoria e mês. */
-export function exportExcel(list: Transaction[], period: Period): void {
-  const items = list
-    .filter((t) => inPeriod(t, period))
-    .sort((a, b) => a.date.localeCompare(b.date))
-  const book = XLSX.utils.book_new()
-
-  const lancamentos = items.map((t) => ({
-    Data: formatDatePtBR(t.date),
-    Tipo: t.type === "receita" ? "Receita" : "Despesa",
-    Categoria: t.category,
-    Descrição: t.description,
-    Valor: t.type === "receita" ? t.amount : -t.amount,
-  }))
-  XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(lancamentos), "Lançamentos")
-
-  const resumo: Record<string, string | number>[] = []
-  for (const type of ["receita", "despesa"] as const) {
-    for (const c of categoryByMonth(items, type, period.year)) {
-      const row: Record<string, string | number> = { Tipo: type === "receita" ? "Receita" : "Despesa", Categoria: c.name }
-      MONTHS_SHORT.forEach((m, i) => {
-        if (period.mode === "year" || i === period.month) row[m] = Math.round(c.months[i] * 100) / 100
-      })
-      row.Total = Math.round(c.total * 100) / 100
-      resumo.push(row)
-    }
-  }
-  XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(resumo), "Por categoria")
-
-  const name =
-    period.mode === "month"
-      ? `relatorio-${period.year}-${String(period.month + 1).padStart(2, "0")}.xlsx`
-      : `relatorio-${period.year}.xlsx`
-  XLSX.writeFile(book, name)
-}
-
