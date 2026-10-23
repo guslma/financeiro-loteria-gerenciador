@@ -68,24 +68,50 @@ function Delta({ value, unit, upIsGood }: { value: number | null; unit: string; 
   )
 }
 
-function CategoryBars({ rows, total, color }: { rows: { name: string; value: number }[]; total: number; color: string }) {
+function CategoryBars({
+  rows,
+  total,
+  color,
+  limit,
+  columns = 1,
+}: {
+  rows: { name: string; value: number }[]
+  total: number
+  color: string
+  limit?: number
+  columns?: 1 | 2
+}) {
+  const [showAll, setShowAll] = useState(false)
   if (!rows.length) return <p className="text-slate-500">Nada lançado neste período.</p>
+  // As menores ficam juntas em "Outras", para o card não crescer com cada categoria pequena.
+  const cut = limit && !showAll && rows.length > limit + 1
+  const shown = cut ? rows.slice(0, limit) : rows
+  const rest = cut ? rows.slice(limit) : []
   const top = rows[0].value || 1
+  const bar = (name: string, value: number, key: string, muted = false) => (
+    <div key={key} className="min-w-0">
+      <div className="mb-1.5 flex justify-between gap-3 tabular-nums">
+        <span className={cn("truncate font-medium", muted ? "text-slate-600" : "capitalize")}>{name}</span>
+        <span className="whitespace-nowrap text-slate-700">
+          {money(value)} <span className="text-slate-500">· {percent(total ? (value / total) * 100 : 0)}</span>
+        </span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+        <div className={cn("h-full rounded-full", muted ? "bg-slate-400" : color)} style={{ width: `${Math.min(100, (value / top) * 100).toFixed(1)}%` }} />
+      </div>
+    </div>
+  )
   return (
-    <div className="flex flex-col gap-3">
-      {rows.map((r) => (
-        <div key={r.name}>
-          <div className="mb-1.5 flex justify-between gap-3 tabular-nums">
-            <span className="font-medium capitalize">{r.name}</span>
-            <span className="text-slate-700">
-              {money(r.value)} <span className="text-slate-500">· {percent(total ? (r.value / total) * 100 : 0)}</span>
-            </span>
-          </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-            <div className={cn("h-full rounded-full", color)} style={{ width: `${((r.value / top) * 100).toFixed(1)}%` }} />
-          </div>
-        </div>
-      ))}
+    <div>
+      <div className={cn("grid gap-x-8 gap-y-3", columns === 2 && "sm:grid-cols-2")}>
+        {shown.map((r) => bar(r.name, r.value, r.name))}
+        {rest.length > 0 && bar(`Outras (${rest.length} categorias)`, rest.reduce((a, r) => a + r.value, 0), "outras", true)}
+      </div>
+      {limit && rows.length > limit + 1 && (
+        <button type="button" onClick={() => setShowAll(!showAll)} className="mt-3 text-[13px] font-semibold text-blue-700 hover:text-blue-900">
+          {showAll ? "Mostrar só as maiores" : `Ver todas as ${rows.length} categorias`}
+        </button>
+      )}
     </div>
   )
 }
@@ -353,11 +379,11 @@ export default function Dashboard() {
       </div>
 
       <div className="flex flex-wrap gap-5">
-        <Panel title="De onde veio o dinheiro" subtitle={`Receitas de ${periodLabel(period)} por categoria`} className="flex-[1_1_380px]">
+        <Panel title="De onde veio o dinheiro" subtitle={`Receitas de ${periodLabel(period)} por categoria`} className="flex-[1_1_300px]">
           <CategoryBars rows={recBars} total={cur.receitas} color="bg-emerald-600" />
         </Panel>
-        <Panel title="Para onde foi o dinheiro" subtitle={`Despesas de ${periodLabel(period)} por categoria`} className="flex-[1_1_380px]">
-          <CategoryBars rows={despBars} total={cur.despesas} color="bg-rose-600/80" />
+        <Panel title="Para onde foi o dinheiro" subtitle={`Despesas de ${periodLabel(period)} por categoria`} className="flex-[2_1_560px]">
+          <CategoryBars rows={despBars} total={cur.despesas} color="bg-rose-600/80" limit={7} columns={2} />
         </Panel>
       </div>
 
