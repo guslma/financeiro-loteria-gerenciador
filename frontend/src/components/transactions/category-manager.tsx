@@ -134,10 +134,13 @@ export function CategoryManager({ type }: CategoryManagerProps) {
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            <Settings className="h-4 w-4 mr-2" />
-            Gerenciar Categorias
-          </Button>
+          <button
+            type="button"
+            className="inline-flex h-[42px] items-center gap-2 rounded-[10px] border border-slate-300 bg-white px-3.5 font-medium hover:bg-slate-50"
+          >
+            <Settings className="h-4 w-4" />
+            Categorias
+          </button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>

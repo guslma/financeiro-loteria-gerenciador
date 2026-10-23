@@ -1,9 +1,7 @@
 import type React from "react"
 
 import { useRef, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Loader2, ScanLine, Sparkles } from "lucide-react"
+import { Check, Loader2, ScanLine, Sparkles } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { extractReceipt, getReceiptUrl } from "@/lib/api-client"
 import type { ReceiptExtraction } from "@/lib/api-client"
@@ -59,8 +57,6 @@ export function ReceiptCapture({ onExtracted, onFileSelected, existingPhotoUrl }
 
   return (
     <div className="space-y-2">
-      <Label>Comprovante (opcional)</Label>
-
       <input
         ref={cameraInputRef}
         type="file"
@@ -73,41 +69,57 @@ export function ReceiptCapture({ onExtracted, onFileSelected, existingPhotoUrl }
       />
 
       {previewUrl ? (
-        <div className="flex items-center gap-3 rounded-lg border p-3">
+        <div className="flex items-center gap-3.5 rounded-[14px] border border-blue-200 bg-blue-50 p-3">
           <div className="relative shrink-0">
-            <img src={previewUrl} alt="Comprovante" className="h-20 w-20 rounded border object-cover" />
+            <img src={previewUrl} alt="Comprovante" className="h-[88px] w-[72px] rounded-lg border border-slate-300 bg-white object-cover" />
             {isProcessing && (
-              <div className="absolute inset-0 flex items-center justify-center rounded bg-background/70">
+              <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/70">
                 <Loader2 className="h-5 w-5 animate-spin" />
               </div>
             )}
           </div>
-          <div className="min-w-0 flex-1 space-y-2">
-            <p className="text-sm font-medium">
-              {isProcessing ? "Lendo comprovante..." : "Comprovante anexado"}
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1.5 font-semibold text-blue-800">
+              {isProcessing ? (
+                "Lendo comprovante..."
+              ) : (
+                <>
+                  <Check className="h-4 w-4" /> Comprovante anexado
+                </>
+              )}
             </p>
-            <Button type="button" variant="outline" size="sm" onClick={openCamera} disabled={isProcessing}>
-              <ScanLine />
-              Escanear novamente
-            </Button>
+            <p className="mb-2 mt-1 text-[13px] text-slate-700">
+              Os dados lidos da foto são uma sugestão. Confira antes de salvar.
+            </p>
+            <button
+              type="button"
+              onClick={openCamera}
+              disabled={isProcessing}
+              className="inline-flex h-[34px] items-center gap-1.5 rounded-[9px] border border-blue-300 bg-white px-3 font-medium text-blue-800 hover:bg-blue-50 disabled:opacity-60"
+            >
+              <ScanLine className="h-4 w-4" />
+              Escanear de novo
+            </button>
           </div>
         </div>
       ) : (
-        <div className="space-y-2 rounded-lg border border-dashed p-3">
-          <Button type="button" variant="outline" className="h-12 w-full text-base" onClick={openCamera}>
-            <ScanLine className="!size-5" />
-            Escanear comprovante
-          </Button>
-          <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-            <Sparkles className="h-3 w-3" />
-            A IA preenche valor, data e categoria pra você
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={openCamera}
+          className="flex w-full items-center gap-3.5 rounded-[14px] border-2 border-dashed border-slate-400 bg-slate-50 p-3.5 text-left hover:border-blue-700 hover:bg-blue-50"
+        >
+          <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+            <ScanLine className="h-[22px] w-[22px]" />
+          </span>
+          <span>
+            <span className="block font-semibold">Escanear comprovante</span>
+            <span className="flex items-center gap-1 text-[13px] text-slate-600">
+              <Sparkles className="h-3 w-3" />
+              Opcional. A IA preenche valor, data e categoria.
+            </span>
+          </span>
+        </button>
       )}
-
-      <p className="text-xs text-muted-foreground">
-        Os dados lidos da foto são apenas uma sugestão — confira antes de salvar.
-      </p>
     </div>
   )
 }

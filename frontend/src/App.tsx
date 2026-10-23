@@ -1,10 +1,9 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route, Navigate } from "react-router-dom"
 import { AppHeader, AppBottomNav } from "@/components/layout/app-header"
 import { Toaster } from "@/components/ui/toaster"
 import Dashboard from "@/pages/Dashboard"
 import Receitas from "@/pages/Receitas"
 import Despesas from "@/pages/Despesas"
-import Relatorios from "@/pages/Relatorios"
 import Importar from "@/pages/Importar"
 import Login from "@/pages/Login"
 import { useAuth } from "@/lib/auth-context"
@@ -25,12 +24,12 @@ function App() {
       <div className="fixed inset-0 bg-gradient-to-br from-white/80 via-transparent to-white/60 pointer-events-none" />
       <div className="relative z-10">
         <AppHeader />
-        <main className="container mx-auto px-4 py-6 pb-24 md:pb-6">
+        <main className="mx-auto max-w-7xl px-4 py-7 pb-28 md:px-5 md:pb-16">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/receitas" element={<Receitas />} />
             <Route path="/despesas" element={<Despesas />} />
-            <Route path="/relatorios" element={<Relatorios />} />
+            <Route path="/relatorios" element={<Navigate to="/" replace />} />
             <Route path="/importar" element={<Importar />} />
           </Routes>
         </main>
