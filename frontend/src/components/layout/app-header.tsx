@@ -40,7 +40,7 @@ export function AppHeader() {
                 className={cn(
                   "flex items-center gap-2 rounded-[10px] px-3.5 py-2 font-medium transition-colors",
                   active
-                    ? "bg-gradient-to-r from-blue-500 to-green-500 font-semibold text-white shadow-md"
+                    ? "bg-gradient-to-r from-blue-500 to-green-500 text-white shadow-md"
                     : "text-slate-700 hover:bg-white/70",
                 )}
               >

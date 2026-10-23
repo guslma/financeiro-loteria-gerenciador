@@ -99,8 +99,10 @@ export default function Dashboard() {
     fetchTransactions()
       .then((data) => {
         setTransactions(data)
-        // Abre no mês mais recente com lançamentos: no começo do mês o atual ainda está vazio.
-        const latest = data.reduce((max, t) => (t.date > max ? t.date : max), "")
+        // Abre no mês mais recente que já tem receitas: as receitas entram no fim do mês,
+        // então o mês em andamento costuma ter só despesas e pareceria um prejuízo.
+        const withIncome = data.filter((t) => t.type === "receita")
+        const latest = (withIncome.length ? withIncome : data).reduce((max, t) => (t.date > max ? t.date : max), "")
         const now = new Date()
         setPeriod(
           latest
@@ -149,9 +151,10 @@ export default function Dashboard() {
     .map((r, m) => (r || monthly.despesas[m] ? `${((m + 0.5) * 100).toFixed(1)},${(220 - (Math.max(0, r - monthly.despesas[m]) / max) * 220).toFixed(1)}` : null))
     .filter(Boolean)
     .join(" ")
-  const saldos = monthly.receitas.map((r, m) => r - monthly.despesas[m]).slice(0, lastMonthWithData + 1)
-  const best = saldos.length ? saldos.indexOf(Math.max(...saldos)) : -1
-  const worst = saldos.length ? saldos.indexOf(Math.min(...saldos)) : -1
+  // Melhor e pior mês só entre os meses que já têm receitas: o mês em andamento ainda não fechou.
+  const closed = monthly.receitas.map((r, m) => ({ m, saldo: r - monthly.despesas[m] })).filter(({ m }) => monthly.receitas[m] > 0)
+  const best = closed.length ? closed.reduce((a, b) => (b.saldo > a.saldo ? b : a)) : null
+  const worst = closed.length ? closed.reduce((a, b) => (b.saldo < a.saldo ? b : a)) : null
   const yearRec = monthly.receitas.reduce((a, b) => a + b, 0)
   const yearDesp = monthly.despesas.reduce((a, b) => a + b, 0)
 
@@ -338,8 +341,8 @@ export default function Dashboard() {
             { label: "Receitas", value: money(yearRec), cls: GOOD },
             { label: "Despesas", value: money(yearDesp), cls: BAD },
             { label: "Saldo", value: money(yearRec - yearDesp), cls: "" },
-            { label: "Melhor mês", value: best >= 0 ? `${MONTHS[best]} · ${money(saldos[best])}` : "—", cls: "" },
-            { label: "Mês mais fraco", value: worst >= 0 ? `${MONTHS[worst]} · ${money(saldos[worst])}` : "—", cls: "" },
+            { label: "Melhor mês", value: best ? `${MONTHS[best.m]} · ${money(best.saldo)}` : "—", cls: "" },
+            { label: "Mês mais fraco", value: worst ? `${MONTHS[worst.m]} · ${money(worst.saldo)}` : "—", cls: "" },
           ].map((line) => (
             <div key={line.label} className="flex items-baseline justify-between gap-3 border-b border-slate-100 py-2.5 tabular-nums">
               <span className="text-slate-600">{line.label}</span>

@@ -100,6 +100,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
   const [month, setMonth] = useState<{ year: number; month: number } | null>(null)
   const [categoryFilter, setCategoryFilter] = useState("")
   const [search, setSearch] = useState("")
+  const [showAllCategories, setShowAllCategories] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
 
   useEffect(() => {
@@ -232,6 +233,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
     setReceiptFile(null)
     setReceiptMeta(null)
     setCategoryHint(null)
+    setShowAllCategories(false)
   }
 
   const handleReceiptExtracted = ({
@@ -411,7 +413,15 @@ export function TransactionManager({ type }: TransactionManagerProps) {
 
   const today = localIsoDate()
   const yesterday = localIsoDate(-1)
-  const categoryChoices = allCategories.filter((c) => c !== "Nova")
+  // As 8 categorias mais usadas primeiro; as outras ficam atrás de "Ver todas".
+  const usage = new Map<string, number>()
+  for (const t of transactions) usage.set(t.category, (usage.get(t.category) ?? 0) + 1)
+  const ranked = allCategories.filter((c) => c !== "Nova").sort((a, b) => (usage.get(b) ?? 0) - (usage.get(a) ?? 0))
+  const FEW = 8
+  const categoryChoices =
+    showAllCategories || ranked.length <= FEW + 1
+      ? ranked
+      : [...ranked.slice(0, FEW), ...ranked.slice(FEW).filter((c) => c === formData.category)]
 
   return (
     <div className="flex flex-col gap-5 text-[14px] text-slate-900">
@@ -515,7 +525,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
         {groups.map((group) => (
           <div key={group.key}>
             <div className="flex items-center justify-between border-b border-slate-200 px-1 pb-1.5 pt-4 tabular-nums">
-              <span className="font-bold capitalize text-slate-700">{group.label}</span>
+              <span className={cn("font-bold text-slate-700", sortBy === "category" && "capitalize")}>{group.label}</span>
               {group.total !== null && <span className="text-[13px] font-semibold text-slate-600">{money(group.total)}</span>}
             </div>
             {group.items.map((t) => (
@@ -666,6 +676,15 @@ export function TransactionManager({ type }: TransactionManagerProps) {
                   <Plus className="h-4 w-4" /> Nova categoria
                 </button>
               </div>
+              {ranked.length > FEW + 1 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllCategories(!showAllCategories)}
+                  className="mt-2 text-[13px] font-semibold text-blue-700 hover:text-blue-900"
+                >
+                  {showAllCategories ? "Mostrar só as mais usadas" : `Ver todas as ${ranked.length} categorias`}
+                </button>
+              )}
               {categoryHint && <p className="mt-2 text-xs text-slate-600">{categoryHint}</p>}
               {showCustomCategory && (
                 <Input
