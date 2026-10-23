@@ -1,519 +1,453 @@
-
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, TrendingUp, TrendingDown } from "lucide-react"
-import { getYear, getMonthIndex } from "@/lib/dates"
-import { fetchTransactions } from "@/lib/api-client"
-import type { Transaction } from "@/lib/api-client"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { Link } from "react-router-dom"
 import {
-  Bar,
-  BarChart,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-} from "recharts"
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  DollarSign,
+  Download,
+  FileSpreadsheet,
+  Minus,
+  Percent,
+  Plus,
+  Printer,
+  ScanLine,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react"
+import { toast } from "@/hooks/use-toast"
+import { fetchSettings, fetchTransactions } from "@/lib/api-client"
+import type { Transaction } from "@/lib/api-client"
+import { formatDatePtBR, getMonthIndex, getYear } from "@/lib/dates"
+import {
+  MONTHS,
+  MONTHS_SHORT,
+  byCategory,
+  categoryByMonth,
+  change,
+  inPeriod,
+  money,
+  monthlyTotals,
+  percent,
+  periodLabel,
+  previousPeriod,
+  totals,
+  wholeNumber,
+  type Period,
+} from "@/lib/finance"
+import { exportExcel, printReport } from "@/lib/report-export"
+import { cn } from "@/lib/utils"
 
-// Gera uma cor distinta por índice, sem precisar manter uma paleta fixa —
-// importante porque o número de categorias varia (cada lotérico tem as suas).
-function categoryColor(index: number, total: number) {
-  const hue = total > 0 ? Math.round((index * 360) / total) : 0
-  return `hsl(${hue}, 70%, 50%)`
+const GOOD = "text-emerald-700"
+const BAD = "text-rose-700"
+
+function Panel({ title, subtitle, action, className, children }: { title: string; subtitle?: string; action?: ReactNode; className?: string; children: ReactNode }) {
+  return (
+    <section className={cn("min-w-0 rounded-[14px] border border-slate-200 bg-white/90 p-5 shadow-[0_4px_16px_rgba(15,23,42,0.05)]", className)}>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 className="text-[17px] font-bold">{title}</h2>
+          {subtitle && <p className="text-[13px] text-slate-600">{subtitle}</p>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  )
 }
 
-// Lotéricas reais costumam ter muito mais categorias de despesa do que de
-// receita, com escalas bem diferentes (Folha Salarial vs. Água, por
-// exemplo) — mostrar todas como barras lado a lado vira poluição visual.
-// Mantemos só as maiores e agrupamos o resto em "Outras Despesas".
-const DESPESA_CHART_LIMIT = 5
-const OUTRAS_DESPESAS_LABEL = "Outras Despesas"
+function Delta({ value, unit, upIsGood }: { value: number | null; unit: string; upIsGood: boolean }) {
+  if (value === null) return <span className="font-semibold text-slate-600">—</span>
+  const good = value >= 0 === upIsGood
+  return (
+    <span className={cn("font-semibold", good ? GOOD : BAD)}>
+      {value >= 0 ? "▲" : "▼"} {Math.abs(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}
+      {unit}
+    </span>
+  )
+}
 
-// Mesma lógica de "top N + Outras" aplicada às pizzas de receita/despesa do
-// modo "Por Mês" — sem isso, lotéricas com muitas categorias acabam com uma
-// pizza ilegível de fatias minúsculas.
-const PIE_CHART_LIMIT = 5
-
-function pieDataFromTotals(totals: Map<string, number>, outrasLabel: string) {
-  const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1])
-  const top = sorted.slice(0, PIE_CHART_LIMIT)
-  const outrasTotal = sorted.slice(PIE_CHART_LIMIT).reduce((sum, [, value]) => sum + value, 0)
-  const data = top.map(([name, value]) => ({ name, value }))
-  if (outrasTotal > 0) data.push({ name: outrasLabel, value: outrasTotal })
-  return data
+function CategoryBars({ rows, total, color }: { rows: { name: string; value: number }[]; total: number; color: string }) {
+  if (!rows.length) return <p className="text-slate-500">Nada lançado neste período.</p>
+  const top = rows[0].value || 1
+  return (
+    <div className="flex flex-col gap-3">
+      {rows.map((r) => (
+        <div key={r.name}>
+          <div className="mb-1.5 flex justify-between gap-3 tabular-nums">
+            <span className="font-medium capitalize">{r.name}</span>
+            <span className="text-slate-700">
+              {money(r.value)} <span className="text-slate-500">· {percent(total ? (r.value / total) * 100 : 0)}</span>
+            </span>
+          </div>
+          <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+            <div className={cn("h-full rounded-full", color)} style={{ width: `${((r.value / top) * 100).toFixed(1)}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [filterType, setFilterType] = useState("year") // "month", "year"
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
+  const [storeName, setStoreName] = useState("Minha Lotérica")
+  const [period, setPeriod] = useState<Period | null>(null)
 
   useEffect(() => {
     fetchTransactions()
-      .then(setTransactions)
-      .catch((error) => console.error("Erro ao carregar transações:", error))
+      .then((data) => {
+        setTransactions(data)
+        // Abre no mês mais recente com lançamentos: no começo do mês o atual ainda está vazio.
+        const latest = data.reduce((max, t) => (t.date > max ? t.date : max), "")
+        const now = new Date()
+        setPeriod(
+          latest
+            ? { mode: "month", year: getYear(latest), month: getMonthIndex(latest) }
+            : { mode: "month", year: now.getFullYear(), month: now.getMonth() },
+        )
+      })
+      .catch((error) => {
+        console.error("Erro ao carregar lançamentos:", error)
+        toast({ title: "Erro", description: "Erro ao carregar os lançamentos", variant: "destructive" })
+      })
+    fetchSettings()
+      .then((s) => s.storeName && setStoreName(s.storeName))
+      .catch(() => {})
   }, [])
 
-  // Processar dados para gráficos mensais
-  const processFilteredData = () => {
-    let filteredTransactions = [...transactions]
+  const years = useMemo(() => {
+    const set = new Set(transactions.map((t) => getYear(t.date)))
+    set.add(new Date().getFullYear())
+    return [...set].sort((a, b) => a - b)
+  }, [transactions])
 
-    // Aplicar filtros baseado no tipo selecionado
-    if (filterType === "month") {
-      filteredTransactions = transactions.filter(
-        (t) => getMonthIndex(t.date) === selectedMonth && getYear(t.date) === selectedYear,
-      )
-    } else if (filterType === "year") {
-      filteredTransactions = transactions.filter((t) => getYear(t.date) === selectedYear)
-    }
-
-    // Categorias usadas dinamicamente, em vez de uma lista fixa no código —
-    // cada lotérico tem suas próprias categorias de receita/despesa.
-    const receitaCategories = [...new Set(filteredTransactions.filter((t) => t.type === "receita").map((t) => t.category))]
-    const despesaCategories = [...new Set(filteredTransactions.filter((t) => t.type === "despesa").map((t) => t.category))]
-
-    // Categorias de despesa que ganham barra própria no gráfico: as maiores
-    // pelo total do período filtrado, com o restante agrupado em "Outras".
-    const receitaTotals = new Map<string, number>()
-    const despesaTotals = new Map<string, number>()
-    for (const t of filteredTransactions) {
-      const totals = t.type === "receita" ? receitaTotals : despesaTotals
-      totals.set(t.category, (totals.get(t.category) ?? 0) + t.amount)
-    }
-    const topDespesaCategories = [...despesaTotals.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, DESPESA_CHART_LIMIT)
-      .map(([category]) => category)
-    const hasOutrasDespesas = despesaCategories.length > topDespesaCategories.length
-    const despesaChartCategories = hasOutrasDespesas
-      ? [...topDespesaCategories, OUTRAS_DESPESAS_LABEL]
-      : topDespesaCategories
-    const despesaChartKey = (category: string) =>
-      topDespesaCategories.includes(category) ? category : OUTRAS_DESPESAS_LABEL
-
-    // Processar dados mensais para gráficos
-    const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
-    const monthlyData = months.map((month, index) => {
-      const monthTransactions = filteredTransactions.filter((t) => getMonthIndex(t.date) === index)
-
-      const data: Record<string, string | number> = { month }
-      let totalReceitas = 0
-      let totalDespesas = 0
-
-      for (const category of receitaCategories) {
-        const sum = monthTransactions
-          .filter((t) => t.type === "receita" && t.category === category)
-          .reduce((s, t) => s + t.amount, 0)
-        data[category] = sum
-        totalReceitas += sum
-      }
-
-      for (const category of despesaCategories) {
-        const sum = monthTransactions
-          .filter((t) => t.type === "despesa" && t.category === category)
-          .reduce((s, t) => s + t.amount, 0)
-        const key = despesaChartKey(category)
-        data[key] = ((data[key] as number) ?? 0) + sum
-        totalDespesas += sum
-      }
-
-      const fluxoCaixa = totalReceitas - totalDespesas
-
-      return { ...data, totalReceitas, totalDespesas, fluxoCaixa }
-    })
-
-    // Calcular fluxo acumulado
-    let acumulado = 0
-    return {
-      monthlyData: monthlyData.map((data) => {
-        acumulado += data.fluxoCaixa
-        return { ...data, fluxoAcumulado: acumulado }
-      }),
-      filteredTransactions,
-      receitaCategories,
-      despesaChartCategories,
-      receitaPieData: pieDataFromTotals(receitaTotals, "Outras Receitas"),
-      despesaPieData: pieDataFromTotals(despesaTotals, OUTRAS_DESPESAS_LABEL),
-    }
+  if (!period) {
+    return <div className="py-20 text-center text-slate-500">Carregando...</div>
   }
 
-  const {
-    monthlyData,
-    filteredTransactions,
-    receitaCategories,
-    despesaChartCategories,
-    receitaPieData,
-    despesaPieData,
-  } = processFilteredData()
+  const year = period.year
+  const items = transactions.filter((t) => inPeriod(t, period))
+  const cur = totals(items)
+  const monthly = monthlyTotals(transactions, year)
+  const lastMonthWithData = monthly.receitas.reduce((last, r, m) => (r || monthly.despesas[m] ? m : last), -1)
+  const prev = previousPeriod(period, lastMonthWithData)
+  const before = totals(transactions.filter(prev.matches))
+  const margem = cur.receitas ? (cur.saldo / cur.receitas) * 100 : 0
+  const margemAntes = before.receitas ? (before.saldo / before.receitas) * 100 : null
 
-  const availableYears = [...new Set([new Date().getFullYear(), ...transactions.map((t) => getYear(t.date))])].sort(
-    (a, b) => b - a,
-  )
+  const cards = [
+    { label: "Receitas", value: money(cur.receitas), valueClass: GOOD, icon: TrendingUp, iconClass: "bg-emerald-100 text-emerald-700", delta: change(cur.receitas, before.receitas), unit: "%", upIsGood: true, note: prev.label },
+    { label: "Despesas", value: money(cur.despesas), valueClass: BAD, icon: TrendingDown, iconClass: "bg-rose-100 text-rose-700", delta: change(cur.despesas, before.despesas), unit: "%", upIsGood: false, note: prev.label },
+    { label: "Saldo", value: money(cur.saldo), valueClass: cur.saldo >= 0 ? "text-slate-900" : BAD, icon: DollarSign, iconClass: "bg-blue-100 text-blue-700", delta: change(cur.saldo, before.saldo), unit: "%", upIsGood: true, note: prev.label },
+    { label: "Margem", value: percent(margem), valueClass: "text-slate-900", icon: Percent, iconClass: "bg-violet-100 text-violet-700", delta: margemAntes === null ? null : margem - margemAntes, unit: " p.p.", upIsGood: true, note: "do que entra vira lucro" },
+  ]
 
-  const totalReceitas = filteredTransactions.filter((t) => t.type === "receita").reduce((sum, t) => sum + t.amount, 0)
-  const totalDespesas = filteredTransactions.filter((t) => t.type === "despesa").reduce((sum, t) => sum + t.amount, 0)
-  const saldo = totalReceitas - totalDespesas
+  const max = Math.max(...monthly.receitas, ...monthly.despesas, 1)
+  const saldoPoints = monthly.receitas
+    .map((r, m) => (r || monthly.despesas[m] ? `${((m + 0.5) * 100).toFixed(1)},${(220 - (Math.max(0, r - monthly.despesas[m]) / max) * 220).toFixed(1)}` : null))
+    .filter(Boolean)
+    .join(" ")
+  const saldos = monthly.receitas.map((r, m) => r - monthly.despesas[m]).slice(0, lastMonthWithData + 1)
+  const best = saldos.length ? saldos.indexOf(Math.max(...saldos)) : -1
+  const worst = saldos.length ? saldos.indexOf(Math.min(...saldos)) : -1
+  const yearRec = monthly.receitas.reduce((a, b) => a + b, 0)
+  const yearDesp = monthly.despesas.reduce((a, b) => a + b, 0)
+
+  const recBars = byCategory(items, "receita")
+  const despBars = byCategory(items, "despesa")
+  const biggest = items.filter((t) => t.type === "despesa").sort((a, b) => b.amount - a.amount).slice(0, 5)
+  const recent = [...items].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5)
+  const heatRec = categoryByMonth(transactions, "receita", year)
+  const heatDesp = categoryByMonth(transactions, "despesa", year)
+
+  const minYear = years[0]
+  const maxYear = years[years.length - 1]
+  const goPrev = () => {
+    if (period.mode === "month") {
+      if (period.month > 0) setPeriod({ ...period, month: period.month - 1 })
+      else if (year > minYear) setPeriod({ mode: "month", year: year - 1, month: 11 })
+    } else if (year > minYear) setPeriod({ mode: "year", year: year - 1 })
+  }
+  const goNext = () => {
+    if (period.mode === "month") {
+      if (period.month < 11) setPeriod({ ...period, month: period.month + 1 })
+      else if (year < maxYear) setPeriod({ mode: "month", year: year + 1, month: 0 })
+    } else if (year < maxYear) setPeriod({ mode: "year", year: year + 1 })
+  }
+  const selectedMonth = period.mode === "month" ? period.month : -1
+
+  const heatRows = (rows: ReturnType<typeof categoryByMonth>, rgb: string) =>
+    rows.map((c) => {
+      const cmax = Math.max(...c.months, 1)
+      return (
+        <tr key={c.name} className="hover:bg-slate-50">
+          <th scope="row" className="sticky left-0 bg-white px-2.5 py-1.5 text-left font-medium capitalize">{c.name}</th>
+          {c.months.map((v, m) => (
+            <td
+              key={m}
+              className={cn("rounded px-2 py-1.5 text-right", !v && "text-slate-400")}
+              style={{ background: v ? `rgba(${rgb},${(0.08 + 0.5 * (v / cmax)).toFixed(2)})` : undefined }}
+            >
+              {wholeNumber(v)}
+            </td>
+          ))}
+          <td className="px-2.5 py-1.5 text-right font-semibold">{wholeNumber(c.total)}</td>
+        </tr>
+      )
+    })
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-5 text-[14px] text-slate-900">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">Dashboard Financeiro</h1>
-          <p className="text-muted-foreground mt-2">Visão geral das suas finanças</p>
+          <p className="font-medium text-slate-600">{storeName}</p>
+          <h1 className="text-[28px] font-bold tracking-tight">Visão geral</h1>
         </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="month">Por Mês</SelectItem>
-              <SelectItem value="year">Por Ano</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {filterType === "month" && (
-            <>
-              <Select
-                value={selectedYear.toString()}
-                onValueChange={(value) => setSelectedYear(Number.parseInt(value))}
-              >
-                <SelectTrigger className="w-[100px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableYears.map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={selectedMonth.toString()}
-                onValueChange={(value) => setSelectedMonth(Number.parseInt(value))}
-              >
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[
-                    "Janeiro",
-                    "Fevereiro",
-                    "Março",
-                    "Abril",
-                    "Maio",
-                    "Junho",
-                    "Julho",
-                    "Agosto",
-                    "Setembro",
-                    "Outubro",
-                    "Novembro",
-                    "Dezembro",
-                  ].map((month, index) => (
-                    <SelectItem key={index} value={index.toString()}>
-                      {month}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
-
-          {filterType === "year" && (
-            <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(Number.parseInt(value))}>
-              <SelectTrigger className="w-[100px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableYears.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+        <div className="flex flex-wrap gap-2">
+          <Link to="/importar" className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-slate-300 bg-white px-3.5 font-medium hover:bg-slate-50">
+            <Download className="h-4 w-4" /> Importar planilha
+          </Link>
+          <button type="button" onClick={() => exportExcel(transactions, period)} className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-slate-300 bg-white px-3.5 font-medium hover:bg-slate-50">
+            <FileSpreadsheet className="h-4 w-4" /> Exportar Excel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!printReport(transactions, period, storeName)) {
+                toast({ title: "Aviso", description: "Permita janelas pop-up para gerar o PDF", variant: "destructive" })
+              }
+            }}
+            className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-blue-700 px-3.5 font-semibold text-white hover:bg-blue-800"
+          >
+            <Printer className="h-4 w-4" /> Gerar PDF
+          </button>
         </div>
       </div>
 
-      {/* Cards de resumo */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Receitas
-              {filterType === "month" && (
-                <div className="text-xs text-muted-foreground font-normal">
-                  {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][selectedMonth]}{" "}
-                  {selectedYear}
-                </div>
-              )}
-              {filterType === "year" && <div className="text-xs text-muted-foreground font-normal">{selectedYear}</div>}
-            </CardTitle>
-            <div className="rounded-xl bg-green-100 p-2 text-green-600">
-              <TrendingUp className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold tracking-tight text-green-600">
-              R$ {totalReceitas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </div>
-          </CardContent>
-        </Card>
+      <section aria-label="Atalhos" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Link to="/receitas?novo=1" className="flex items-center gap-3 rounded-[14px] bg-emerald-700 px-4 py-3.5 font-semibold text-white shadow-[0_6px_16px_rgba(4,120,87,0.22)] hover:bg-emerald-800">
+          <Plus className="h-5 w-5" /> Nova receita
+        </Link>
+        <Link to="/despesas?novo=1" className="flex items-center gap-3 rounded-[14px] bg-rose-700 px-4 py-3.5 font-semibold text-white shadow-[0_6px_16px_rgba(190,18,60,0.22)] hover:bg-rose-800">
+          <Minus className="h-5 w-5" /> Nova despesa
+        </Link>
+        <Link to="/despesas?novo=1&escanear=1" className="flex items-center gap-3 rounded-[14px] border border-slate-300 bg-white px-4 py-3.5 font-semibold hover:bg-slate-50">
+          <ScanLine className="h-5 w-5 text-blue-700" /> Escanear comprovante
+        </Link>
+      </section>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Despesas
-              {filterType === "month" && (
-                <div className="text-xs text-muted-foreground font-normal">
-                  {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][selectedMonth]}{" "}
-                  {selectedYear}
-                </div>
-              )}
-              {filterType === "year" && <div className="text-xs text-muted-foreground font-normal">{selectedYear}</div>}
-            </CardTitle>
-            <div className="rounded-xl bg-red-100 p-2 text-red-600">
-              <TrendingDown className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold tracking-tight text-red-600">
-              R$ {totalDespesas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Saldo do Período
-              {filterType === "month" && (
-                <div className="text-xs text-muted-foreground font-normal">
-                  {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][selectedMonth]}{" "}
-                  {selectedYear}
-                </div>
-              )}
-              {filterType === "year" && <div className="text-xs text-muted-foreground font-normal">{selectedYear}</div>}
-            </CardTitle>
-            <div className="rounded-xl bg-blue-100 p-2 text-blue-600">
-              <Calendar className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold tracking-tight ${saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
-              R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Transações
-              {filterType === "month" && (
-                <div className="text-xs text-muted-foreground font-normal">
-                  {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][selectedMonth]}{" "}
-                  {selectedYear}
-                </div>
-              )}
-              {filterType === "year" && <div className="text-xs text-muted-foreground font-normal">{selectedYear}</div>}
-            </CardTitle>
-            <div className="rounded-xl bg-purple-100 p-2 text-purple-600">
-              <Calendar className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold tracking-tight">{filteredTransactions.length}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Gráficos */}
-      {filterType === "month" ? (
-        // Sem evolução mensal nem fluxo acumulado nesse modo — não fazem
-        // sentido pra um único mês. Pizzas mostram a composição por categoria.
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Receitas por Categoria</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {receitaPieData.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-12">Sem receitas no período</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={receitaPieData} dataKey="value" nameKey="name" outerRadius={100} label={(entry) => entry.name}>
-                      {receitaPieData.map((entry, index) => (
-                        <Cell key={entry.name} fill={categoryColor(index, receitaPieData.length)} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Despesas por Categoria</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {despesaPieData.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-12">Sem despesas no período</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={despesaPieData} dataKey="value" nameKey="name" outerRadius={100} label={(entry) => entry.name}>
-                      {despesaPieData.map((entry, index) => (
-                        <Cell key={entry.name} fill={categoryColor(index, despesaPieData.length)} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
+      <section aria-label="Período" className="flex flex-wrap items-center gap-3 rounded-[14px] border border-slate-200 bg-white/85 p-3">
+        <div role="group" aria-label="Ver por" className="inline-flex rounded-[10px] bg-slate-100 p-[3px]">
+          {(["month", "year"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={period.mode === mode}
+              onClick={() =>
+                setPeriod(mode === "year" ? { mode, year } : { mode, year, month: selectedMonth >= 0 ? selectedMonth : Math.max(0, lastMonthWithData) })
+              }
+              className={cn("h-[34px] rounded-lg px-4 font-semibold", period.mode === mode ? "bg-white text-blue-700 shadow-sm" : "text-slate-600")}
+            >
+              {mode === "month" ? "Mês" : "Ano"}
+            </button>
+          ))}
         </div>
-      ) : (
-        <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {/* Evolução das Receitas */}
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Evolução das Receitas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                    />
-                    <Legend />
-                    {receitaCategories.map((category, index) => (
-                      <Bar
-                        key={category}
-                        dataKey={category}
-                        fill={categoryColor(index, receitaCategories.length)}
-                        name={category}
-                      />
-                    ))}
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+        <div className="inline-flex items-center gap-1">
+          <button type="button" onClick={goPrev} aria-label="Período anterior" className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-slate-200 bg-white hover:bg-slate-50">
+            <ChevronLeft className="h-[18px] w-[18px]" />
+          </button>
+          <span className="min-w-[150px] text-center text-base font-bold">{periodLabel(period)}</span>
+          <button type="button" onClick={goNext} aria-label="Próximo período" className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-slate-200 bg-white hover:bg-slate-50">
+            <ChevronRight className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+        <span className="text-slate-600">Tudo abaixo mostra este período.</span>
+      </section>
 
-            {/* Fluxo de Caixa */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Fluxo de Caixa Mensal</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                    />
-                    <Line type="monotone" dataKey="fluxoCaixa" stroke="#8884d8" strokeWidth={2} name="Fluxo de Caixa" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Evolução das Despesas */}
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Evolução das Despesas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                    />
-                    <Legend />
-                    {despesaChartCategories.map((category, index) => (
-                      <Bar
-                        key={category}
-                        dataKey={category}
-                        fill={categoryColor(index, despesaChartCategories.length)}
-                        name={category}
-                      />
-                    ))}
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Fluxo de Caixa Acumulado */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Fluxo de Caixa Acumulado</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                    />
-                    <Line type="monotone" dataKey="fluxoAcumulado" stroke="#06b6d4" strokeWidth={3} name="Acumulado" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+      <section aria-label="Resumo" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((c) => (
+          <div key={c.label} className="flex flex-col gap-1.5 rounded-[14px] border border-slate-200 bg-white/90 p-[18px] shadow-[0_4px_16px_rgba(15,23,42,0.05)]">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-slate-600">{c.label}</span>
+              <span className={cn("flex h-[34px] w-[34px] items-center justify-center rounded-[10px]", c.iconClass)}>
+                <c.icon className="h-[18px] w-[18px]" />
+              </span>
+            </div>
+            <div className={cn("text-[28px] font-bold tracking-tight tabular-nums", c.valueClass)}>{c.value}</div>
+            <div className="text-[13px] text-slate-600 tabular-nums">
+              <Delta value={c.delta} unit={c.unit} upIsGood={c.upIsGood} /> {c.note}
+            </div>
           </div>
+        ))}
+      </section>
 
-          {/* Comparativo Receitas vs Despesas */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Comparativo Anual - Receitas vs Despesas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip
-                    formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                  />
-                  <Legend />
-                  <Bar dataKey="totalReceitas" fill="#22c55e" name="Total Receitas" />
-                  <Bar dataKey="totalDespesas" fill="#ef4444" name="Total Despesas" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </>
-      )}
+      <div className="flex flex-wrap gap-5">
+        <Panel
+          title={`Receitas e despesas em ${year}`}
+          className="flex-[999_1_600px]"
+          action={
+            <div className="flex flex-wrap gap-4 text-[13px] text-slate-600">
+              <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-[3px] bg-emerald-600" />Receitas</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-[3px] bg-rose-300" />Despesas</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-[3px] w-4 rounded bg-blue-700" />Saldo</span>
+            </div>
+          }
+        >
+          <div className="overflow-x-auto">
+            <div className="relative min-w-[560px]">
+              <div className="relative grid h-[220px] grid-cols-12 items-end gap-2 border-b border-slate-300">
+                {MONTHS_SHORT.map((label, m) => {
+                  const has = monthly.receitas[m] > 0 || monthly.despesas[m] > 0
+                  const title = has
+                    ? `${MONTHS[m]}: receitas ${money(monthly.receitas[m])}, despesas ${money(monthly.despesas[m])}, saldo ${money(monthly.receitas[m] - monthly.despesas[m])}`
+                    : `${MONTHS[m]}: sem lançamentos`
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      title={title}
+                      aria-label={title}
+                      onClick={() => has && setPeriod({ mode: "month", year, month: m })}
+                      className={cn("flex h-full items-end justify-center gap-[3px] rounded-t-lg px-0.5", selectedMonth === m && "bg-blue-50")}
+                    >
+                      <span className="w-[38%] max-w-[22px] rounded-t bg-emerald-600" style={{ height: `${((monthly.receitas[m] / max) * 100).toFixed(1)}%` }} />
+                      <span className="w-[38%] max-w-[22px] rounded-t bg-rose-300" style={{ height: `${((monthly.despesas[m] / max) * 100).toFixed(1)}%` }} />
+                    </button>
+                  )
+                })}
+                <svg viewBox="0 0 1200 220" preserveAspectRatio="none" aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
+                  <polyline points={saldoPoints} fill="none" stroke="#1d4ed8" strokeWidth="2.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                </svg>
+              </div>
+              <div className="mt-2 grid grid-cols-12 gap-2">
+                {MONTHS_SHORT.map((label, m) => (
+                  <span key={label} className={cn("text-center text-xs", selectedMonth === m ? "font-bold text-blue-700" : "text-slate-600")}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <p className="mt-2.5 text-xs text-slate-500">Clique num mês para ver só ele.</p>
+        </Panel>
+
+        <Panel title={`${year} até agora`} className="flex-[1_1_280px]">
+          {[
+            { label: "Receitas", value: money(yearRec), cls: GOOD },
+            { label: "Despesas", value: money(yearDesp), cls: BAD },
+            { label: "Saldo", value: money(yearRec - yearDesp), cls: "" },
+            { label: "Melhor mês", value: best >= 0 ? `${MONTHS[best]} · ${money(saldos[best])}` : "—", cls: "" },
+            { label: "Mês mais fraco", value: worst >= 0 ? `${MONTHS[worst]} · ${money(saldos[worst])}` : "—", cls: "" },
+          ].map((line) => (
+            <div key={line.label} className="flex items-baseline justify-between gap-3 border-b border-slate-100 py-2.5 tabular-nums">
+              <span className="text-slate-600">{line.label}</span>
+              <span className={cn("text-right font-bold", line.cls)}>{line.value}</span>
+            </div>
+          ))}
+        </Panel>
+      </div>
+
+      <div className="flex flex-wrap gap-5">
+        <Panel title="De onde veio o dinheiro" subtitle={`Receitas de ${periodLabel(period)} por categoria`} className="flex-[1_1_380px]">
+          <CategoryBars rows={recBars} total={cur.receitas} color="bg-emerald-600" />
+        </Panel>
+        <Panel title="Para onde foi o dinheiro" subtitle={`Despesas de ${periodLabel(period)} por categoria`} className="flex-[1_1_380px]">
+          <CategoryBars rows={despBars} total={cur.despesas} color="bg-rose-600/80" />
+        </Panel>
+      </div>
+
+      <div className="flex flex-wrap gap-5">
+        <Panel title="5 maiores despesas" subtitle={periodLabel(period)} className="flex-[1_1_380px]">
+          {biggest.length === 0 && <p className="text-slate-500">Nenhuma despesa neste período.</p>}
+          <ol>
+            {biggest.map((t, i) => (
+              <li key={t.id} className="flex items-center gap-3 border-t border-slate-100 py-2.5">
+                <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-lg bg-rose-50 text-[13px] font-bold text-rose-700">{i + 1}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium capitalize">{t.category}</span>
+                  <span className="block text-xs text-slate-500">{formatDatePtBR(t.date)}</span>
+                </span>
+                <span className="font-semibold tabular-nums text-rose-700">{money(t.amount)}</span>
+              </li>
+            ))}
+          </ol>
+        </Panel>
+        <Panel
+          title="Últimos lançamentos"
+          subtitle={periodLabel(period)}
+          className="flex-[1_1_380px]"
+          action={
+            <span className="flex gap-3.5 font-semibold">
+              <Link to="/receitas" className="text-blue-700 hover:text-blue-900">Receitas →</Link>
+              <Link to="/despesas" className="text-blue-700 hover:text-blue-900">Despesas →</Link>
+            </span>
+          }
+        >
+          {recent.length === 0 && <p className="text-slate-500">Nada lançado neste período.</p>}
+          {recent.map((t) => {
+            const isRec = t.type === "receita"
+            return (
+              <div key={t.id} className="flex items-center gap-3 border-t border-slate-100 py-2.5">
+                <span className={cn("flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[9px]", isRec ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}>
+                  {isRec ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium capitalize">{t.category}</span>
+                  <span className="block text-xs text-slate-500">{formatDatePtBR(t.date)}</span>
+                </span>
+                <span className={cn("font-semibold tabular-nums", isRec ? GOOD : BAD)}>
+                  {isRec ? "+ " : "− "}
+                  {money(t.amount)}
+                </span>
+              </div>
+            )
+          })}
+        </Panel>
+      </div>
+
+      <Panel title={`Mês a mês por categoria — ${year}`} action={<span className="text-xs text-slate-500">Quanto mais forte a cor, maior o valor dentro da categoria</span>}>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1080px] border-separate border-spacing-0 text-[12.5px] tabular-nums">
+            <thead>
+              <tr>
+                <th scope="col" className="sticky left-0 min-w-[170px] bg-white px-2.5 py-2 text-left font-semibold text-slate-600">Categoria</th>
+                {MONTHS_SHORT.map((label, m) => (
+                  <th key={label} scope="col" className={cn("rounded-t-md px-2 py-2 text-right font-semibold", selectedMonth === m ? "bg-blue-50 text-blue-700" : "text-slate-600")}>
+                    {label}
+                  </th>
+                ))}
+                <th scope="col" className="px-2.5 py-2 text-right font-bold">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th colSpan={14} scope="colgroup" className="px-2.5 pb-1.5 pt-3 text-left text-xs uppercase tracking-wider text-emerald-700">Receitas</th></tr>
+              {heatRows(heatRec, "5,150,105")}
+              <tr className="font-bold text-emerald-700">
+                <th scope="row" className="sticky left-0 border-t border-slate-300 bg-white px-2.5 py-2 text-left">Total de receitas</th>
+                {monthly.receitas.map((v, m) => <td key={m} className="border-t border-slate-300 px-2 py-2 text-right">{wholeNumber(v)}</td>)}
+                <td className="border-t border-slate-300 px-2.5 py-2 text-right">{wholeNumber(yearRec)}</td>
+              </tr>
+              <tr><th colSpan={14} scope="colgroup" className="px-2.5 pb-1.5 pt-4 text-left text-xs uppercase tracking-wider text-rose-700">Despesas</th></tr>
+              {heatRows(heatDesp, "225,29,72")}
+              <tr className="font-bold text-rose-700">
+                <th scope="row" className="sticky left-0 border-t border-slate-300 bg-white px-2.5 py-2 text-left">Total de despesas</th>
+                {monthly.despesas.map((v, m) => <td key={m} className="border-t border-slate-300 px-2 py-2 text-right">{wholeNumber(v)}</td>)}
+                <td className="border-t border-slate-300 px-2.5 py-2 text-right">{wholeNumber(yearDesp)}</td>
+              </tr>
+              <tr className="font-bold">
+                <th scope="row" className="sticky left-0 rounded-l-lg bg-slate-100 px-2.5 py-2.5 text-left">Saldo do mês</th>
+                {monthly.receitas.map((r, m) => {
+                  const s = r - monthly.despesas[m]
+                  return <td key={m} className={cn("bg-slate-100 px-2 py-2.5 text-right", s >= 0 ? GOOD : BAD)}>{r || monthly.despesas[m] ? wholeNumber(s) : "—"}</td>
+                })}
+                <td className={cn("rounded-r-lg bg-slate-100 px-2.5 py-2.5 text-right", yearRec - yearDesp >= 0 ? GOOD : BAD)}>{wholeNumber(yearRec - yearDesp)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Panel>
     </div>
   )
 }

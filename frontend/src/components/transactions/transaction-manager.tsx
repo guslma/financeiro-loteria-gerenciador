@@ -2,12 +2,8 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { useSearchParams } from "react-router-dom"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -15,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   AlertDialog,
@@ -27,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Plus, Edit, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { CurrencyInput, parseCurrencyValue } from "@/components/transactions/currency-input"
 import { CategoryManager } from "@/components/transactions/category-manager"
@@ -42,9 +37,11 @@ import {
 } from "@/lib/api-client"
 import type { ReceiptExtraction, Transaction } from "@/lib/api-client"
 import { getReceiptUrl, getReceiptThumbUrl } from "@/lib/api-client"
-import { formatDatePtBR } from "@/lib/dates"
+import { formatDatePtBR, getMonthIndex, getYear } from "@/lib/dates"
 import { categoriesMatch } from "@/lib/categories"
 import { findDuplicateTransactions } from "@/lib/duplicates"
+import { MONTHS, money } from "@/lib/finance"
+import { cn } from "@/lib/utils"
 
 interface TransactionManagerProps {
   type: "receita" | "despesa"
@@ -54,19 +51,30 @@ const labels = {
   receita: {
     title: "Receitas",
     singular: "Receita",
-    newButton: "Nova Receita",
-    listTitle: "Lista de Receitas",
-    listDescription: "Todas as receitas registradas no sistema",
-    amountColor: "text-green-600",
+    newButton: "Nova receita",
+    amountColor: "text-emerald-700",
+    button: "bg-emerald-700 hover:bg-emerald-800",
+    soft: "bg-emerald-100 text-emerald-700",
+    inputBorder: "[&_input]:border-emerald-700",
+    chosen: "border-emerald-700 bg-emerald-50 text-emerald-900",
   },
   despesa: {
     title: "Despesas",
     singular: "Despesa",
-    newButton: "Nova Despesa",
-    listTitle: "Lista de Despesas",
-    listDescription: "Todas as despesas registradas no sistema",
-    amountColor: "text-red-600",
+    newButton: "Nova despesa",
+    amountColor: "text-rose-700",
+    button: "bg-rose-700 hover:bg-rose-800",
+    soft: "bg-rose-100 text-rose-700",
+    inputBorder: "[&_input]:border-rose-700",
+    chosen: "border-rose-700 bg-rose-50 text-rose-900",
   },
+}
+
+// "YYYY-MM-DD" de hoje e de ontem no fuso local, como o campo de data espera.
+function localIsoDate(offsetDays = 0): string {
+  const d = new Date()
+  d.setDate(d.getDate() + offsetDays)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
 export function TransactionManager({ type }: TransactionManagerProps) {
@@ -88,6 +96,11 @@ export function TransactionManager({ type }: TransactionManagerProps) {
   const [duplicateWarning, setDuplicateWarning] = useState<Transaction[] | null>(null)
   const [receiptMeta, setReceiptMeta] = useState<{ barcode: string | null; payee: string | null } | null>(null)
   const [categoryHint, setCategoryHint] = useState<string | null>(null)
+  // Mês mostrado na lista; null mostra todos os lançamentos.
+  const [month, setMonth] = useState<{ year: number; month: number } | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState("")
+  const [search, setSearch] = useState("")
+  const [searchParams, setSearchParams] = useSearchParams()
 
   useEffect(() => {
     loadTransactions()
@@ -98,10 +111,24 @@ export function TransactionManager({ type }: TransactionManagerProps) {
     return () => window.removeEventListener(`categories-updated-${type}`, handleCategoriesUpdate)
   }, [type])
 
+  // Os atalhos da Visão geral chegam com ?novo=1 e abrem o formulário direto.
+  useEffect(() => {
+    if (searchParams.get("novo")) {
+      handleNewTransaction()
+      setSearchParams({}, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   const loadTransactions = async () => {
     try {
       const data = await fetchTransactions(type)
       setTransactions(data)
+      setMonth((current) => {
+        if (current || data.length === 0) return current
+        const latest = data.reduce((max, t) => (t.date > max ? t.date : max), "")
+        return { year: getYear(latest), month: getMonthIndex(latest) }
+      })
     } catch (error) {
       console.error(`Erro ao carregar ${l.title.toLowerCase()}:`, error)
       toast({ title: "Erro", description: `Erro ao carregar ${l.title.toLowerCase()}`, variant: "destructive" })
@@ -181,6 +208,8 @@ export function TransactionManager({ type }: TransactionManagerProps) {
           toast({ title: "Sucesso", description: `${l.singular} adicionada` })
         }
         await loadTransactions()
+        // Mostra o mês do lançamento salvo, pra ele aparecer na lista.
+        setMonth({ year: getYear(formData.date), month: getMonthIndex(formData.date) })
         if (formData.category === "Nova") {
           window.dispatchEvent(new CustomEvent(`categories-updated-${type}`))
         }
@@ -197,7 +226,7 @@ export function TransactionManager({ type }: TransactionManagerProps) {
   const resetForm = () => {
     setIsDialogOpen(false)
     setEditingTransaction(null)
-    setFormData({ date: new Date().toISOString().split("T")[0], amount: "", category: "" })
+    setFormData({ date: localIsoDate(), amount: "", category: "" })
     setCustomCategory("")
     setShowCustomCategory(false)
     setReceiptFile(null)
@@ -283,287 +312,401 @@ export function TransactionManager({ type }: TransactionManagerProps) {
 
   const handleNewTransaction = () => {
     resetForm()
-    setFormData((prev) => ({ ...prev, date: new Date().toISOString().split("T")[0] }))
+    setFormData((prev) => ({ ...prev, date: localIsoDate() }))
     setIsDialogOpen(true)
   }
 
-  const getSortedTransactions = () => {
-    const sorted = [...transactions].sort((a, b) => {
-      let comparison = 0
-      switch (sortBy) {
-        case "date":
-          comparison = a.date.localeCompare(b.date)
-          break
-        case "amount":
-          comparison = a.amount - b.amount
-          break
-        case "category":
-          comparison = a.category.localeCompare(b.category)
-          break
-      }
-      return sortOrder === "asc" ? comparison : -comparison
-    })
-    return sorted
+  const pickCategory = (value: string) => {
+    setFormData({ ...formData, category: value })
+    setCategoryHint(null)
+    setShowCustomCategory(value === "Nova")
+    if (value !== "Nova") {
+      setCustomCategory("")
+    }
   }
 
+  // ── Lista ──────────────────────────────────────────────────────────
+
+  const inMonth = month
+    ? transactions.filter((t) => getYear(t.date) === month.year && getMonthIndex(t.date) === month.month)
+    : transactions
+  const periodText = month ? `${MONTHS[month.month]} ${month.year}` : "todos os meses"
+  const periodTotal = inMonth.reduce((sum, t) => sum + t.amount, 0)
+
+  const categoryTotals = new Map<string, number>()
+  for (const t of inMonth) categoryTotals.set(t.category, (categoryTotals.get(t.category) ?? 0) + t.amount)
+  const chips = [...categoryTotals.entries()].sort((a, b) => b[1] - a[1])
+
+  const query = search.trim().toLowerCase()
+  const visible = inMonth.filter(
+    (t) =>
+      (!categoryFilter || t.category === categoryFilter) &&
+      (!query ||
+        t.category.toLowerCase().includes(query) ||
+        t.description.toLowerCase().includes(query) ||
+        formatDatePtBR(t.date).includes(query) ||
+        t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 }).includes(query)),
+  )
+  const direction = sortOrder === "asc" ? 1 : -1
+
+  type Group = { key: string; label: string; total: number | null; items: Transaction[] }
+  let groups: Group[]
+  if (sortBy === "date") {
+    const byDay = new Map<string, Transaction[]>()
+    for (const t of visible) byDay.set(t.date, [...(byDay.get(t.date) ?? []), t])
+    groups = [...byDay.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]) * direction)
+      .map(([date, items]) => {
+        const [y, m, d] = date.split("-").map(Number)
+        return {
+          key: date,
+          label: `${String(d).padStart(2, "0")} de ${MONTHS[m - 1].toLowerCase()}${month ? "" : ` de ${y}`}`,
+          total: items.reduce((sum, t) => sum + t.amount, 0),
+          items,
+        }
+      })
+  } else if (sortBy === "amount") {
+    const sorted = [...visible].sort((a, b) => (a.amount - b.amount) * direction)
+    groups = sorted.length
+      ? [{ key: "valor", label: direction < 0 ? "Do maior para o menor" : "Do menor para o maior", total: null, items: sorted }]
+      : []
+  } else {
+    const byCat = new Map<string, Transaction[]>()
+    for (const t of visible) byCat.set(t.category, [...(byCat.get(t.category) ?? []), t])
+    groups = [...byCat.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]) * direction)
+      .map(([name, items]) => ({
+        key: name,
+        label: name,
+        total: items.reduce((sum, t) => sum + t.amount, 0),
+        items: [...items].sort((a, b) => b.date.localeCompare(a.date)),
+      }))
+  }
+
+  const shiftMonth = (delta: number) => {
+    if (!month) return
+    const index = month.year * 12 + month.month + delta
+    setMonth({ year: Math.floor(index / 12), month: index % 12 })
+    setCategoryFilter("")
+  }
+
+  const sortButton = (key: "date" | "amount" | "category", label: string) => (
+    <button
+      key={key}
+      type="button"
+      aria-pressed={sortBy === key}
+      onClick={() => {
+        if (sortBy === key) setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+        else {
+          setSortBy(key)
+          setSortOrder(key === "category" ? "asc" : "desc")
+        }
+      }}
+      className={cn("inline-flex h-[34px] items-center gap-1 rounded-lg px-3 font-medium", sortBy === key ? "bg-white shadow-sm" : "text-slate-600")}
+    >
+      {label}
+      {sortBy === key && <span className="font-bold text-blue-700">{sortOrder === "desc" ? "↓" : "↑"}</span>}
+    </button>
+  )
+
+  const today = localIsoDate()
+  const yesterday = localIsoDate(-1)
+  const categoryChoices = allCategories.filter((c) => c !== "Nova")
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-5 text-[14px] text-slate-900">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">{l.title}</h1>
-          <p className="text-muted-foreground">
-            Total: R${" "}
-            {transactions.reduce((sum, t) => sum + t.amount, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          <h1 className="text-[28px] font-bold tracking-tight">{l.title}</h1>
+          <p className="mt-1 text-slate-600">
+            <strong className={cn("tabular-nums", l.amountColor)}>{money(periodTotal)}</strong> em {periodText} ·{" "}
+            {inMonth.length} lançamentos
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <CategoryManager type={type} />
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleNewTransaction}>
-                <Plus className="mr-2 h-4 w-4" />
-                {l.newButton}
-              </Button>
-            </DialogTrigger>
-            <DialogContent
-              className="max-h-[90vh] overflow-y-auto sm:max-w-[425px]"
-              onOpenAutoFocus={(e) => e.preventDefault()}
-            >
-              <DialogHeader>
-                <DialogTitle>{editingTransaction ? `Editar ${l.singular}` : l.newButton}</DialogTitle>
-                <DialogDescription>
-                  {editingTransaction ? `Edite os dados da ${l.singular.toLowerCase()}` : `Adicione uma nova ${l.singular.toLowerCase()}`}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit}>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="date" className="text-right">
-                      Data
-                    </Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="amount" className="text-right">
-                      Valor
-                    </Label>
-                    <CurrencyInput
-                      id="amount"
-                      value={formData.amount}
-                      onChange={(value) => setFormData({ ...formData, amount: value })}
-                      className="col-span-3"
-                      placeholder="0,00"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="category" className="text-right">
-                      Categoria
-                    </Label>
-                    <div className="col-span-3 space-y-2">
-                      <Select
-                        value={formData.category}
-                        onValueChange={(value) => {
-                          setFormData({ ...formData, category: value })
-                          setCategoryHint(null)
-                          setShowCustomCategory(value === "Nova")
-                          if (value !== "Nova") {
-                            setCustomCategory("")
-                          }
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione uma categoria" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allCategories.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
-                              {cat}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {categoryHint && <p className="text-xs text-muted-foreground">{categoryHint}</p>}
-                      {showCustomCategory && (
-                        <Input
-                          placeholder="Digite a nova categoria"
-                          value={customCategory}
-                          onChange={(e) => setCustomCategory(e.target.value)}
-                        />
-                      )}
-                    </div>
-                  </div>
-                  {type === "despesa" && (
-                    <ReceiptCapture
-                      onExtracted={handleReceiptExtracted}
-                      onFileSelected={setReceiptFile}
-                      existingPhotoUrl={editingTransaction?.receiptPhotoPath ?? null}
-                    />
-                  )}
-                </div>
-                <DialogFooter>
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? "Salvando..." : editingTransaction ? "Atualizar" : "Salvar"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <button
+            type="button"
+            onClick={handleNewTransaction}
+            className={cn("inline-flex h-[42px] items-center gap-2 rounded-[10px] px-4 font-semibold text-white", l.button)}
+          >
+            <Plus className="h-[18px] w-[18px]" />
+            {l.newButton}
+          </button>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:mb-4">
-            <div>
-              <CardTitle>{l.listTitle}</CardTitle>
-              <CardDescription>{l.listDescription}</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="text-sm font-medium whitespace-nowrap">Ordenar por:</Label>
-              <Select value={sortBy} onValueChange={(value: "date" | "amount" | "category") => setSortBy(value)}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date">Data</SelectItem>
-                  <SelectItem value="amount">Valor</SelectItem>
-                  <SelectItem value="category">Categoria</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-                className="px-3"
+      <section aria-label="Filtros" className="flex flex-wrap items-center gap-3 rounded-[14px] border border-slate-200 bg-white/85 p-3">
+        <div className="inline-flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => shiftMonth(-1)}
+            disabled={!month}
+            aria-label="Mês anterior"
+            className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40"
+          >
+            <ChevronLeft className="h-[18px] w-[18px]" />
+          </button>
+          <span className="min-w-[140px] text-center text-base font-bold">{month ? `${MONTHS[month.month]} ${month.year}` : "Todos os meses"}</span>
+          <button
+            type="button"
+            onClick={() => shiftMonth(1)}
+            disabled={!month}
+            aria-label="Próximo mês"
+            className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40"
+          >
+            <ChevronRight className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            const now = new Date()
+            setMonth(month ? null : { year: now.getFullYear(), month: now.getMonth() })
+            setCategoryFilter("")
+          }}
+          className="h-10 rounded-[10px] border border-slate-200 bg-white px-3 font-medium hover:bg-slate-50"
+        >
+          {month ? "Ver todos os meses" : "Ver por mês"}
+        </button>
+        <label className="flex h-10 max-w-[360px] flex-[1_1_220px] items-center gap-2 rounded-[10px] border border-slate-300 bg-white px-3">
+          <Search className="h-4 w-4 text-slate-500" />
+          <span className="sr-only">Buscar {l.singular.toLowerCase()}</span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={`Buscar ${l.singular.toLowerCase()}`}
+            className="min-w-0 flex-1 bg-transparent outline-none"
+          />
+        </label>
+        <div className="flex-auto" />
+        <div role="group" aria-label="Ordenar por" className="inline-flex rounded-[10px] bg-slate-100 p-[3px]">
+          {sortButton("date", "Data")}
+          {sortButton("amount", "Valor")}
+          {sortButton("category", "Categoria")}
+        </div>
+      </section>
+
+      {chips.length > 0 && (
+        <section aria-label="Categorias" className="flex flex-wrap gap-2">
+          {[["", periodTotal] as [string, number], ...chips].map(([name, total]) => {
+            const active = categoryFilter === name
+            return (
+              <button
+                key={name || "todas"}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setCategoryFilter(name)}
+                className={cn(
+                  "inline-flex h-[38px] items-center gap-2 rounded-full border px-3.5",
+                  active ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white hover:bg-slate-50",
+                )}
               >
-                {sortOrder === "asc" ? "↑" : "↓"}
-              </Button>
+                <span className="font-semibold capitalize">{name || "Todas"}</span>
+                <span className="tabular-nums opacity-85">{money(total)}</span>
+              </button>
+            )
+          })}
+        </section>
+      )}
+
+      <section aria-label="Lançamentos" className="rounded-[14px] border border-slate-200 bg-white/90 px-5 pb-5 pt-2 shadow-[0_4px_16px_rgba(15,23,42,0.05)]">
+        {groups.map((group) => (
+          <div key={group.key}>
+            <div className="flex items-center justify-between border-b border-slate-200 px-1 pb-1.5 pt-4 tabular-nums">
+              <span className="font-bold capitalize text-slate-700">{group.label}</span>
+              {group.total !== null && <span className="text-[13px] font-semibold text-slate-600">{money(group.total)}</span>}
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Mobile: lista em cards — uma tabela de 4 colunas não cabe numa
-              tela estreita sem virar scroll horizontal escondido. */}
-          <div className="space-y-3 sm:hidden">
-            {getSortedTransactions().map((transaction) => (
-              <div key={transaction.id} className="rounded-lg border p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-muted-foreground">{formatDatePtBR(transaction.date)}</span>
-                  <span className={`font-medium ${l.amountColor}`}>
-                    R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-sm capitalize">
-                    {transaction.category}
-                    {transaction.receiptPhotoPath && (
-                      <button
-                        type="button"
-                        onClick={() => setLightboxTransaction(transaction)}
-                        title="Ver comprovante"
-                        className="shrink-0"
-                      >
-                        <img
-                          src={getReceiptThumbUrl(transaction.receiptPhotoPath) ?? ""}
-                          alt="Comprovante"
-                          className="h-7 w-7 rounded border object-cover transition-transform hover:scale-110"
-                          onError={(e) => { e.currentTarget.style.display = "none" }}
-                        />
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleEdit(transaction)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setTransactionToDelete(transaction)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+            {group.items.map((t) => (
+              <div key={t.id} className="group flex items-center gap-3 border-b border-slate-100 px-1 py-2.5 hover:bg-slate-50">
+                <span className={cn("flex h-9 w-9 flex-none items-center justify-center rounded-[10px]", l.soft)}>
+                  {type === "receita" ? <ArrowUp className="h-[18px] w-[18px]" /> : <ArrowDown className="h-[18px] w-[18px]" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium capitalize">{t.category}</span>
+                  <span className="block text-xs text-slate-500">{formatDatePtBR(t.date)}</span>
+                </span>
+                {t.receiptPhotoPath && (
+                  <button type="button" onClick={() => setLightboxTransaction(t)} title="Ver comprovante" aria-label="Ver comprovante" className="shrink-0">
+                    <img
+                      src={getReceiptThumbUrl(t.receiptPhotoPath) ?? ""}
+                      alt=""
+                      className="h-8 w-8 rounded border object-cover transition-transform hover:scale-110"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none"
+                      }}
+                    />
+                  </button>
+                )}
+                <span className={cn("min-w-[110px] text-right font-semibold tabular-nums", l.amountColor)}>{money(t.amount)}</span>
+                <span className="flex gap-0.5 opacity-60 group-hover:opacity-100">
+                  <button
+                    type="button"
+                    onClick={() => handleEdit(t)}
+                    aria-label="Editar"
+                    title="Editar"
+                    className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-slate-700 hover:bg-slate-200"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTransactionToDelete(t)}
+                    aria-label="Excluir"
+                    title="Excluir"
+                    className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-slate-700 hover:bg-slate-200"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </span>
               </div>
             ))}
           </div>
+        ))}
+        {groups.length === 0 && (
+          <p className="px-1 pb-1 pt-5 text-slate-500">
+            {inMonth.length === 0
+              ? `Nenhuma ${l.singular.toLowerCase()} em ${periodText}.`
+              : `Nenhuma ${l.singular.toLowerCase()} combina com a busca ou a categoria escolhida.`}
+          </p>
+        )}
+      </section>
 
-          {/* Tablet/desktop: tabela */}
-          <div className="hidden sm:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {getSortedTransactions().map((transaction) => (
-                  <TableRow key={transaction.id}>
-                    <TableCell>{formatDatePtBR(transaction.date)}</TableCell>
-                    <TableCell className="capitalize">
-                      <div className="flex items-center gap-2">
-                        {transaction.category}
-                        {transaction.receiptPhotoPath && (
-                          <button
-                            type="button"
-                            onClick={() => setLightboxTransaction(transaction)}
-                            title="Ver comprovante"
-                            className="shrink-0"
-                          >
-                            <img
-                              src={getReceiptThumbUrl(transaction.receiptPhotoPath) ?? ""}
-                              alt="Comprovante"
-                              className="h-7 w-7 rounded border object-cover transition-transform hover:scale-110"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none"
-                              }}
-                            />
-                          </button>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className={`text-right font-medium ${l.amountColor}`}>
-                      R$ {transaction.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEdit(transaction)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => setTransactionToDelete(transaction)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[520px]" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-[19px]">{editingTransaction ? `Editar ${l.singular.toLowerCase()}` : l.newButton}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingTransaction ? `Edite os dados da ${l.singular.toLowerCase()}` : `Adicione uma nova ${l.singular.toLowerCase()}`}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            {type === "despesa" && (
+              <ReceiptCapture
+                onExtracted={handleReceiptExtracted}
+                onFileSelected={setReceiptFile}
+                existingPhotoUrl={editingTransaction?.receiptPhotoPath ?? null}
+              />
+            )}
+
+            <div>
+              <label htmlFor="amount" className="mb-1.5 block font-semibold">
+                Valor
+              </label>
+              <CurrencyInput
+                id="amount"
+                value={formData.amount}
+                onChange={(value) => setFormData({ ...formData, amount: value })}
+                className={cn(
+                  "[&>span]:left-4 [&>span]:text-xl [&>span]:font-semibold [&_input]:h-16 [&_input]:rounded-[14px] [&_input]:border-2 [&_input]:pl-14 [&_input]:text-[28px] [&_input]:font-bold [&_input]:tabular-nums",
+                  l.inputBorder,
+                )}
+                placeholder="0,00"
+              />
+            </div>
+
+            <div>
+              <span className="mb-1.5 block font-semibold">Data</span>
+              <div className="flex flex-wrap items-center gap-2">
+                {[
+                  { value: today, label: "Hoje" },
+                  { value: yesterday, label: "Ontem" },
+                ].map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    aria-pressed={formData.date === option.value}
+                    onClick={() => setFormData({ ...formData, date: option.value })}
+                    className={cn(
+                      "h-10 rounded-[10px] border px-3.5 font-medium",
+                      formData.date === option.value ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white hover:bg-slate-50",
+                    )}
+                  >
+                    {option.label}
+                  </button>
                 ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                <Input
+                  id="date"
+                  type="date"
+                  aria-label="Outra data"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  className="h-10 w-auto"
+                />
+              </div>
+            </div>
+
+            <div>
+              <span className="mb-1.5 block font-semibold">Categoria</span>
+              <div role="group" aria-label="Categoria" className="grid grid-cols-2 gap-2">
+                {categoryChoices.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    aria-pressed={formData.category === cat}
+                    onClick={() => pickCategory(cat)}
+                    className={cn(
+                      "h-11 truncate rounded-[10px] border px-3 text-left font-medium capitalize",
+                      formData.category === cat ? l.chosen : "border-slate-300 bg-white hover:bg-slate-50",
+                    )}
+                  >
+                    {cat}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  aria-pressed={formData.category === "Nova"}
+                  onClick={() => pickCategory("Nova")}
+                  className={cn(
+                    "flex h-11 items-center gap-1.5 rounded-[10px] border px-3 text-left font-medium",
+                    formData.category === "Nova" ? l.chosen : "border-blue-300 bg-white text-blue-700 hover:bg-blue-50",
+                  )}
+                >
+                  <Plus className="h-4 w-4" /> Nova categoria
+                </button>
+              </div>
+              {categoryHint && <p className="mt-2 text-xs text-slate-600">{categoryHint}</p>}
+              {showCustomCategory && (
+                <Input
+                  className="mt-2"
+                  placeholder="Nome da nova categoria"
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                />
+              )}
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setIsDialogOpen(false)}
+                className="h-11 rounded-[10px] border border-slate-300 bg-white px-[18px] font-medium hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button type="submit" disabled={isSaving} className={cn("h-11 rounded-[10px] px-5 font-semibold text-white disabled:opacity-60", l.button)}>
+                {isSaving ? "Salvando..." : editingTransaction ? "Salvar alterações" : `Salvar ${l.singular.toLowerCase()}`}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!transactionToDelete} onOpenChange={(open) => !open && setTransactionToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Excluir {l.singular.toLowerCase()}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover esta {l.singular.toLowerCase()}? Esta ação não pode ser desfeita.
+              {transactionToDelete &&
+                `${transactionToDelete.category} de ${formatDatePtBR(transactionToDelete.date)}, ${money(transactionToDelete.amount)}. `}
+              Não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Remover
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -572,20 +715,18 @@ export function TransactionManager({ type }: TransactionManagerProps) {
       <AlertDialog open={!!duplicateWarning} onOpenChange={(open) => !open && setDuplicateWarning(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Possível lançamento duplicado</AlertDialogTitle>
+            <AlertDialogTitle>Talvez já esteja lançada</AlertDialogTitle>
             <AlertDialogDescription>
               Já existe {l.singular.toLowerCase()} com a mesma categoria e o mesmo valor neste mês:
             </AlertDialogDescription>
           </AlertDialogHeader>
           <ul className="space-y-1 text-sm">
             {duplicateWarning?.map((t) => (
-              <li key={t.id} className="flex justify-between gap-4 rounded border px-3 py-2">
+              <li key={t.id} className="flex justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
                 <span>
                   {formatDatePtBR(t.date)} · <span className="capitalize">{t.category}</span>
                 </span>
-                <span className={`font-medium ${l.amountColor}`}>
-                  R$ {t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </span>
+                <span className={cn("font-medium", l.amountColor)}>{money(t.amount)}</span>
               </li>
             ))}
           </ul>
@@ -622,14 +763,13 @@ export function TransactionManager({ type }: TransactionManagerProps) {
             />
           )}
           <DialogFooter className="absolute bottom-2 right-2">
-            <Button
-              variant="secondary"
-              size="sm"
+            <button
+              type="button"
               onClick={() => setLightboxTransaction(null)}
-              className="bg-black/50 text-white hover:bg-black/70"
+              className="rounded-md bg-black/50 px-3 py-1.5 text-sm text-white hover:bg-black/70"
             >
               Fechar
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
